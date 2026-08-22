@@ -269,6 +269,19 @@ export interface CreatedPane {
 export type CreateResponse = { ok: true; pane: CreatedPane } | { ok: false; error: string };
 
 /**
+ * One operator-declared launcher (`COLLIE_LAUNCHERS`) — a shell line the phone starts in a throwaway
+ * space with one tap. The configured list doubles as the allowlist `/api/launch` matches against, so
+ * `command` is an identity here and not a free-text argument: the client sends it back to NAME a
+ * row, and a value absent from this list runs nothing.
+ */
+export interface Launcher {
+  /** The shell line typed into the new space's shell, verbatim. */
+  command: string;
+  /** One-line button label. Defaults to the command's first whitespace-separated token. */
+  label: string;
+}
+
+/**
  * One operator-declared slash command (`COLLIE_COMMANDS`). A pane any of these rows address shows
  * them INSTEAD of the shipped Agent-commands catalog; a pane none of them address keeps it. This is
  * the escape hatch for commands the shipped catalog cannot know about — plugin- or user-registered
@@ -296,6 +309,8 @@ export interface BridgeConfig {
   build?: string;
   /** The operator's own palette rows. Absent/empty when `COLLIE_COMMANDS` is unset. */
   operatorCommands?: OperatorCommand[];
+  /** The operator's own launcher rows. Absent/empty when `COLLIE_LAUNCHERS` is unset. */
+  launchers?: Launcher[];
 }
 
 /** Rank for triage ordering — lower sorts first ("NEEDS YOU" at the top). */

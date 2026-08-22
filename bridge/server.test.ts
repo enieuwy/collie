@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { homedir } from "node:os";
 
 import {
   BUILD_HEADER,
@@ -18,6 +19,7 @@ import {
   resolveStaticPath,
   sendReplySteps,
   startupWarnings,
+  launch,
   withBuildHeader,
   type ReplySender,
 } from "./server.ts";
@@ -53,6 +55,7 @@ function cfg(overrides: Partial<Config> = {}): Config {
       opencode: ["/nope/opencode"],
     },
     submitKeys: ["Enter"],
+    launchers: [],
     operatorCommands: [],
     trustedUser: "",
     deviceHeader: "",
@@ -316,6 +319,115 @@ describe("sendReplySteps — two-step send & partial-failure clarity", () => {
     const out = await sendReplySteps(client, "p1", "hello", false, ["Enter"], noSleep);
     expect(out).toEqual({ ok: true, textDelivered: true });
     expect(client.calls).toEqual(["text"]);
+  });
+});
+
+describe("launch — allowlisted shell command in a new space", () => {
+  class FakeLaunchClient {
+    readonly workspaces: Array<{ cwd: string; label?: string }> = [];
+    readonly texts: Array<[string, string]> = [];
+    readonly keys: Array<[string, string[]]> = [];
+    readonly closed: string[] = [];
+    constructor(private readonly failOn?: "text" | "keys") {}
+
+    createWorkspace(opts: { cwd: string; label?: string }): Promise<{
+      paneId: string;
+      workspaceId: string;
+      workspaceLabel?: string;
+      tabId: string;
+      cwd: string;
+    }> {
+      this.workspaces.push(opts);
+      return Promise.resolve({
+        paneId: "pane-launch",
+        workspaceId: "space-launch",
+        workspaceLabel: opts.label,
+        tabId: "tab-launch",
+        cwd: "/home/operator",
+      });
+    }
+
+    sendPaneText(paneId: string, text: string): Promise<void> {
+      this.texts.push([paneId, text]);
+      return this.failOn === "text" ? Promise.reject(new Error("text rejected")) : Promise.resolve();
+    }
+
+    sendPaneKeys(paneId: string, keys: string[]): Promise<void> {
+      this.keys.push([paneId, keys]);
+      return this.failOn === "keys" ? Promise.reject(new Error("keys rejected")) : Promise.resolve();
+    }
+
+    closePane(paneId: string): Promise<void> {
+      this.closed.push(paneId);
+      return Promise.resolve();
+    }
+  }
+
+  function request(command: unknown): Request {
+    return new Request("http://localhost/api/launch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ command }),
+    });
+  }
+
+  function audit(): AuditLog {
+    return new AuditLog(() => {});
+  }
+
+  test("rejects an unlisted command without creating anything", async () => {
+    const client = new FakeLaunchClient();
+    const res = await launch(
+      client as unknown as HerdrClient,
+      cfg({ launchers: [{ command: "rumen-peek", label: "Runs" }] }),
+      request("not-listed"),
+      audit(),
+      "phone",
+      "default",
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ ok: false, error: "command not allowlisted" });
+    expect(client.workspaces).toEqual([]);
+  });
+
+  test("creates a labelled space and types the command plus Enter", async () => {
+    const client = new FakeLaunchClient();
+    const res = await launch(
+      client as unknown as HerdrClient,
+      cfg({ launchers: [{ command: "rumen-peek --json", label: "Runs & quota" }] }),
+      request("rumen-peek --json"),
+      audit(),
+      "phone",
+      "default",
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      pane: { paneId: "pane-launch", workspaceLabel: "Runs & quota" },
+    });
+    // The space opens in the operator's home dir, exactly like `/api/workspace` with no cwd in the
+    // body: a launcher is a command, not a project, so the menu carries no path of its own.
+    expect(client.workspaces).toEqual([{ cwd: homedir(), label: "Runs & quota" }]);
+    expect(client.texts).toEqual([["pane-launch", "rumen-peek --json"]]);
+    expect(client.keys).toEqual([["pane-launch", ["Enter"]]]);
+  });
+
+  test("closes the created pane when sending fails", async () => {
+    const client = new FakeLaunchClient("keys");
+    const res = await launch(
+      client as unknown as HerdrClient,
+      cfg({ launchers: [{ command: "rumen-peek", label: "Runs" }] }),
+      request("rumen-peek"),
+      audit(),
+      null,
+      "default",
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: "typed into the pane but not submitted — check the pane before resending",
+    });
+    expect(client.closed).toEqual(["pane-launch"]);
   });
 });
 

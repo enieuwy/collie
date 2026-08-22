@@ -17,7 +17,7 @@ import { DisplayPrefsContent } from "@/components/display-prefs";
 import { SectionLabel } from "@/components/ui/section-label";
 import * as api from "@/lib/api";
 import { commandsFor } from "@/lib/agent-commands";
-import { useOperatorCommands } from "@/lib/operator-commands";
+import { useOperatorCommands } from "@/lib/bridge-config";
 import { isDestructiveInput } from "@/lib/destructive";
 import { loadDraft, saveDraft } from "@/lib/drafts";
 import { useHoldReload } from "@/lib/reload-guard";

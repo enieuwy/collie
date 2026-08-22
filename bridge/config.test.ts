@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { defaultSocketPath, loadConfig, parseOperatorCommands } from "./config.ts";
+import { defaultSocketPath, loadConfig, parseLaunchers, parseOperatorCommands } from "./config.ts";
 
 // loadConfig is the deployment contract — env vars in, a resolved Config out. Pure (just reads
 // process.env + homedir), so we drive it by mutating the environment and restoring it after.
@@ -40,6 +40,7 @@ const KEYS = [
   "HERDR_PLUGIN_STATE_DIR",
   "COLLIE_HERDR_DIAL",
   "COLLIE_COMMANDS",
+  "COLLIE_LAUNCHERS",
 ];
 
 let saved: Record<string, string | undefined>;
@@ -75,6 +76,7 @@ describe("loadConfig", () => {
     expect(cfg.journalRoots.claude[0]).toEndWith("/.claude/projects");
     // OpenCode keeps ONE sqlite database at the top of its XDG data dir — no per-session files.
     expect(cfg.journalRoots.opencode).toEqual([join(homedir(), ".local", "share", "opencode")]);
+    expect(cfg.launchers).toEqual([]);
     expect(cfg.submitKeys).toEqual(["Enter"]);
     expect(cfg.trustedUser).toBe("");
     expect(cfg.allowedOrigins).toEqual([]);
@@ -391,6 +393,57 @@ describe("parseOperatorCommands", () => {
     ]);
     expect(parseOperatorCommands("omp:/set [key=value]=Set a key")).toMatchObject([
       { command: "/set", argHint: "[key", description: "value]=Set a key" },
+    ]);
+  });
+});
+
+describe("parseLaunchers", () => {
+  test("unset or blank yields nothing", () => {
+    expect(parseLaunchers(undefined)).toEqual([]);
+    expect(parseLaunchers("")).toEqual([]);
+    expect(parseLaunchers(" , ,")).toEqual([]);
+  });
+
+  test("defaults the label to the command's first token", () => {
+    expect(parseLaunchers("rumen-peek --json")).toEqual([
+      { command: "rumen-peek --json", label: "rumen-peek" },
+    ]);
+  });
+
+  test("keeps an explicit label", () => {
+    expect(parseLaunchers("showy-quota-peek --compact=Quota bars")).toEqual([
+      { command: "showy-quota-peek --compact", label: "Quota bars" },
+    ]);
+  });
+
+  test("keeps command arguments and flags verbatim", () => {
+    expect(parseLaunchers("rumen-peek --pool fast --limit 3=Runs fast quota")).toEqual([
+      { command: "rumen-peek --pool fast --limit 3", label: "Runs fast quota" },
+    ]);
+  });
+
+  test("later duplicate wins in place and warns", () => {
+    const warnings: string[] = [];
+    const original = console.warn;
+    console.warn = (...args: unknown[]) => warnings.push(args.join(" "));
+    try {
+      expect(parseLaunchers("one=First,two=Second,one=Updated")).toEqual([
+        { command: "one", label: "Updated" },
+        { command: "two", label: "Second" },
+      ]);
+    } finally {
+      console.warn = original;
+    }
+    expect(warnings.some((line) => line.includes("redefined"))).toBe(true);
+  });
+
+  test("skips empty commands", () => {
+    expect(parseLaunchers("=Missing label,ok=Okay")).toEqual([{ command: "ok", label: "Okay" }]);
+  });
+
+  test("skips commands containing ASCII control characters", () => {
+    expect(parseLaunchers("good=Good,bad\nline=Bad,bell\u0007cmd=Bad")).toEqual([
+      { command: "good", label: "Good" },
     ]);
   });
 });

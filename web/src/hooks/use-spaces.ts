@@ -81,5 +81,21 @@ export function useSpaceActions() {
     [open],
   );
 
-  return { newTab, newSpace };
+  // Launch a throwaway space from an operator-declared `COLLIE_LAUNCHERS` row. Mirrors
+  // newSpace exactly: read-only short-circuit via readOnlyRef, try/catch → setStatus, open(...)
+  // with the same "fresh pane" navigate + revalidate. The command string is an allowlist key —
+  // the bridge 400s anything not in the configured set, so the client never needs its own gate.
+  const launch = useCallback(
+    async (command: string) => {
+      if (readOnlyRef.current) return setStatus("Read-only — device not authorised", "error");
+      try {
+        open(await api.launch(command, sessionRef.current), "space");
+      } catch (e) {
+        setStatus(e instanceof Error ? e.message : String(e), "error");
+      }
+    },
+    [open],
+  );
+
+  return { newTab, newSpace, launch };
 }

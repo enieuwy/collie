@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import type { DialMode } from "./dial.ts";
 import type { JournalRoots } from "./journal/registry.ts";
-import type { OperatorCommand } from "./types.ts";
+import type { Launcher, OperatorCommand } from "./types.ts";
 
 // All bridge configuration, resolved once at startup. Env-driven so the systemd unit and the
 // plugin launcher can configure it without code changes. Defaults are safe for a single-user,
@@ -128,6 +128,54 @@ export function parseOperatorCommands(raw: string | undefined): OperatorCommand[
 }
 
 /**
+ * Parse `COLLIE_LAUNCHERS` — the operator's phone launcher menu.
+ *
+ * One entry per comma-separated field, in the same list style as every other Collie list var
+ * ({@link envList}):
+ *
+ * ```
+ * <command>[=<label>]
+ * ```
+ *
+ * The command is the shell line typed verbatim into a fresh space. When no label is given, the
+ * button label is the command's first whitespace-separated token. A LATER entry for the same
+ * command replaces the earlier row IN PLACE, so appending to the variable corrects a label without
+ * reshuffling the menu. Empty commands and commands containing ASCII control characters are
+ * rejected: the string is typed into a shell verbatim, and a newline would submit a second line
+ * nobody reviewed.
+ *
+ * This variable exists instead of accepting a command from the client because the configuration IS
+ * the allowlist — a phone can only run lines the host operator wrote. Exported and pure so the
+ * grammar is unit-testable without touching `process.env`.
+ */
+export function parseLaunchers(raw: string | undefined): Launcher[] {
+  const out: Launcher[] = [];
+  const at = new Map<string, number>();
+  for (const entry of (raw ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
+    const eq = entry.indexOf("=");
+    const command = (eq === -1 ? entry : entry.slice(0, eq)).trim();
+    const label = (eq === -1 ? "" : entry.slice(eq + 1).trim()) || command.split(/\s+/, 1)[0] || "";
+    if (command === "" || /[\x00-\x1F\x7F]/.test(command)) {
+      console.warn(
+        `[config] COLLIE_LAUNCHERS: ignoring "${entry}" — command must be non-empty and contain no control characters`,
+      );
+      continue;
+    }
+    const row: Launcher = { command, label };
+    const prev = at.get(command);
+    if (prev !== undefined) {
+      // Later wins, in place: correcting a launcher label must not reshuffle the phone menu.
+      console.warn(`[config] COLLIE_LAUNCHERS: "${command}" redefined — later entry wins`);
+      out[prev] = row;
+      continue;
+    }
+    at.set(command, out.length);
+    out.push(row);
+  }
+  return out;
+}
+
+/**
  * A journal root setting: a list of directories, or `fallback` when unset.
  *
  * Comma-separated, like every other list Collie reads ({@link envList}) — deliberately NOT `PATH`'s
@@ -227,6 +275,8 @@ export interface Config {
    * why the shipped catalog cannot carry these.
    */
   operatorCommands: OperatorCommand[];
+  /** Operator-declared shell launchers. Empty unless `COLLIE_LAUNCHERS` is set. */
+  launchers: Launcher[];
   /**
    * Tailscale identity gate. If set, any request carrying a `Tailscale-User-Login` header
    * (injected by `tailscale serve`) must match this login — a mismatching tailnet user is
@@ -344,6 +394,7 @@ export function loadConfig(): Config {
     },
     submitKeys: submitKeys.length ? submitKeys : ["Enter"],
     operatorCommands: parseOperatorCommands(process.env.COLLIE_COMMANDS),
+    launchers: parseLaunchers(process.env.COLLIE_LAUNCHERS),
     trustedUser: process.env.COLLIE_TRUSTED_USER ?? "",
     deviceHeader: (process.env.COLLIE_DEVICE_HEADER ?? "").trim(),
     deviceAllowlist: envList("COLLIE_DEVICE_ALLOWLIST"),

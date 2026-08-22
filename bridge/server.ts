@@ -229,6 +229,13 @@ export function startServer(opts: {
         if (!rt) return unknownSession();
         return createWorkspace(rt.herdr, req, audit, deviceAuth(req, cfg).device, rt.name);
       }
+      if (pathname === "/api/launch" && req.method === "POST") {
+        const denied = guard(req, cfg, "write");
+        if (denied) return denied;
+        const rt = registry.get(sessionName);
+        if (!rt) return unknownSession();
+        return launch(rt.herdr, cfg, req, audit, deviceAuth(req, cfg).device, rt.name);
+      }
 
       // ── Tab actions: rename (set its label) / close (kill it + every pane in it) ──
       const tabMatch = pathname.match(TAB_ACTION_ROUTE);
@@ -288,21 +295,21 @@ export function startServer(opts: {
       if (pathname === "/api/config") {
         // Read-level, like the other non-terminal endpoints. Nothing Collie puts here is a
         // credential — the VAPID public key is handed to every browser by design — but the payload
-        // is no longer entirely Collie's: operatorCommands is operator-authored text, and any read
-        // client sees it verbatim (`.env.example` says so where it is set).
+        // is no longer entirely Collie's: operatorCommands and launchers are operator-authored text,
+        // and any read client sees them verbatim (`.env.example` says so where they are set).
         // It was also the one route that skipped checkAccess entirely, so COLLIE_PUBLIC_HOSTS
         // didn't cover it and a rebound DNS name could read it. The client only ever calls this
         // same-origin, and a refusal can't be mistaken for an outage: ConnectionBanner
-        // short-circuits to AuthErrorBanner before its red-state probe runs. Noted in #32.
         const denied = guard(req, cfg, "read");
         if (denied) return denied;
         return json({
           push: push.enabled,
           vapidPublicKey: push.publicKey,
           build: await buildId(),
-          // Omitted entirely when unset, so an operator who never touched COLLIE_COMMANDS
+          // Omitted entirely when unset, so an operator who never touched either menu
           // ships the same payload as before.
           ...(cfg.operatorCommands.length > 0 ? { operatorCommands: cfg.operatorCommands } : {}),
+          ...(cfg.launchers.length > 0 ? { launchers: cfg.launchers } : {}),
         } satisfies BridgeConfig, req.headers.get("accept-encoding"));
       }
       if (pathname === "/api/subscribe" && req.method === "POST") {
@@ -1020,6 +1027,72 @@ async function createWorkspace(
       session,
       device,
       detail: { label: body.label, cwd },
+    });
+    return json({
+      ok: true,
+      pane: {
+        paneId: created.paneId,
+        workspaceId: created.workspaceId,
+        workspaceLabel: created.workspaceLabel ?? created.workspaceId,
+        tabId: created.tabId,
+        cwd: created.cwd,
+      },
+    } satisfies CreateResponse, ae);
+  } catch (err) {
+    return json({ ok: false, error: (err as Error).message } satisfies CreateResponse, ae);
+  }
+}
+
+// Launch one allowlisted shell command in a throwaway space. The configuration lookup is the
+// security boundary: a phone can request only a line the host operator explicitly wrote.
+export async function launch(
+  herdr: HerdrClient,
+  cfg: Config,
+  req: Request,
+  audit: AuditLog,
+  device: string | null,
+  session: string,
+): Promise<Response> {
+  let body: { command?: unknown };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return text("bad body", 400);
+  }
+  if (body === null || typeof body !== "object" || typeof body.command !== "string") {
+    return text("bad body", 400);
+  }
+  const launcher = cfg.launchers.find((row) => row.command === body.command);
+  const ae = req.headers.get("accept-encoding");
+  if (!launcher) {
+    return json({ ok: false, error: "command not allowlisted" } satisfies CreateResponse, ae, 400);
+  }
+
+  try {
+    // Same cwd rule as `/api/workspace` with no cwd in the body: the operator's home dir. A launcher
+    // is a command, not a project, so the menu deliberately has no per-entry path to get wrong —
+    // anything that cares about its directory says so in the command itself.
+    const created = await herdr.createWorkspace({ cwd: homedir(), label: launcher.label });
+    // COLLIE_SUBMIT_KEYS is the agent-dependent submit sequence for a TUI composer. This is a bare
+    // shell prompt, where Enter is the only key that means “run it”.
+    const sent = await sendReplySteps(herdr, created.paneId, launcher.command, true, ["Enter"]);
+    if (!sent.ok) {
+      // Roll back a space whose command did not fully start, so a failed launch cannot leave a shell
+      // nobody asked for behind. A rollback failure is swallowed because the original send error is
+      // the useful result and there is no safe second recovery action to take here.
+      try {
+        await herdr.closePane(created.paneId);
+      } catch (err) {
+        console.warn(`[launch] rollback close failed for ${created.paneId}: ${(err as Error).message}`);
+      }
+      return json({ ok: false, error: sent.error } satisfies CreateResponse, ae);
+    }
+    audit.record({
+      action: "launch",
+      paneId: created.paneId,
+      session,
+      device,
+      detail: { command: launcher.command, label: launcher.label },
     });
     return json({
       ok: true,

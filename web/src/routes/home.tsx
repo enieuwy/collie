@@ -5,6 +5,7 @@ import { AppHeader, SettingsGear } from "@/components/app-header";
 import { SessionSwitcher } from "@/components/session-switcher";
 import { ReadOnlyBanner } from "@/components/read-only-banner";
 import { AgentList } from "@/components/agent-list";
+import { LaunchStrip } from "@/components/launch-strip";
 import { SpaceOverview } from "@/components/space-overview";
 import { NewSpaceSheet } from "@/components/new-space-sheet";
 import { StatusArea } from "@/components/status-area";
@@ -19,6 +20,9 @@ import { panePath, spacePath } from "@/lib/nav";
 // Dashboard home screen. Everything you might ACT on comes first — Needs you → Ready · unseen →
 // Working → Recent (see lib/triage.ts) — and the Spaces navigator sits last, under the thing it
 // navigates to. Recent and Spaces fold; fold both and the page is the triaged herd and nothing else.
+// Launchers (COLLIE_LAUNCHERS) sit between the triaged herd and the Spaces navigator: they are
+// act-on-able one-tap actions like the herd, but they CREATE rather than triage, so they live under
+// the herd and above the navigator that their new space will show up in.
 // Tapping an agent opens its pane; tapping a space drills into /space/:id.
 export function HomeRoute() {
   const data = useRouteLoaderData(ROOT_ROUTE_ID) as HomeData;
@@ -67,6 +71,7 @@ export function HomeRoute() {
             recentOpen={prefs.recentOpen}
             onRecentOpenChange={setRecentOpen}
           />
+          <LaunchStrip />
           <SpaceOverview
             workspaces={data.workspaces}
             agents={data.agents}

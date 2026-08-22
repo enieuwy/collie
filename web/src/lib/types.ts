@@ -269,6 +269,14 @@ export interface OperatorCommand {
   argHint: string;
 }
 
+/** One operator-declared launcher (`COLLIE_LAUNCHERS`). Mirrors Launcher in bridge/types.ts. A tap creates a throwaway space and types this shell line verbatim — herdr deletes a space when its last pane closes, so quit → gone with nothing to clean up. The label is what the dashboard button shows; when the operator omits it the bridge defaults it to the command's first token. */
+export interface Launcher {
+  /** The shell line typed into the new space's shell, verbatim. */
+  command: string;
+  /** One-line button label. Defaults to the command's first token. */
+  label: string;
+}
+
 export interface BridgeConfig {
   push: boolean;
   vapidPublicKey: string;
@@ -276,6 +284,8 @@ export interface BridgeConfig {
   build?: string;
   /** The operator's own palette rows. Absent when `COLLIE_COMMANDS` is unset. */
   operatorCommands?: OperatorCommand[];
+  /** The operator's own launcher rows. Absent when `COLLIE_LAUNCHERS` is unset. */
+  launchers?: Launcher[];
 }
 
 /**
