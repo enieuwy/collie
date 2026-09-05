@@ -3,7 +3,6 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import { useNavigate, useRevalidator } from "react-router";
 import {
   ArrowUpToLine,
-  ChevronUp,
   EllipsisVertical,
   Loader2,
   Minimize2,
@@ -11,23 +10,21 @@ import {
   TerminalSquare,
 } from "lucide-react";
 import { useKeyboardOpen } from "@/hooks/use-keyboard";
-import { useSheetPull } from "@/hooks/use-sheet-pull";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useSpaceActions } from "@/hooks/use-spaces";
 import { useDashPrefs, openForCount } from "@/hooks/use-dash-prefs";
 import { useLaunchers } from "@/lib/launchers";
-import { buzz } from "@/lib/haptics";
 import { mirrorFont, useDisplayPrefs } from "@/hooks/use-display-prefs";
 import { useStableTerminalDraft } from "@/hooks/use-terminal-draft";
 import { useLocale } from "@/hooks/use-locale";
 import { isConnecting } from "@/lib/connection";
-import { t, type MessageKey } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { setStatus } from "@/lib/status";
 import { setFollowing as publishFollowing, stampSend } from "@/lib/poll-intent";
 import { useZenEnabled } from "@/lib/zen";
-import { setStripsCollapsed, useStripsCollapsed } from "@/lib/strips-collapsed";
 import { ChatMessageList, type ChatMessageListHandle } from "@/components/ui/chat/chat-message-list";
 import { BottomSheet } from "@/components/ui/sheet";
-import { Collapse, CollapseSwap } from "@/components/ui/collapse";
+import { Collapse } from "@/components/ui/collapse";
 import { RouteHeader } from "@/components/app-header";
 import { HeaderStatus } from "@/components/header-status";
 import { AnsiOutput } from "@/components/ansi-output";
@@ -41,12 +38,10 @@ import { blockOwnsKeyboard } from "@/lib/harness/dialog-contract";
 import { FindBar } from "@/components/find-bar";
 import { Composer, type ComposerHandle } from "@/components/composer";
 import { ThreadSidebar } from "@/components/agent-sidebar";
+import { SpaceAgentsRow } from "@/components/space-agents-row";
 import { AgentIcon } from "@/components/agent-icon";
-import { TabStrip } from "@/components/tab-strip";
-import { PaneStrip } from "@/components/pane-strip";
-import { StripsSummary } from "@/components/strips-summary";
 import { PaneActionsSheet } from "@/components/pane-actions-sheet";
-import { CompactStripLabels, STRIP_TAP_TARGET_SQUARE } from "@/components/ui/labelled-strip";
+import { CompactStripLabels } from "@/components/ui/labelled-strip";
 import { ReadOnlyBanner } from "@/components/read-only-banner";
 import { HostStaleBanner } from "@/components/host-stale-banner";
 import { useHostHealth } from "@/components/pack-provider";
@@ -67,9 +62,8 @@ import { cwdBeyondName } from "@/lib/pane-name";
 import { useMuxCapability } from "@/lib/mux-capability";
 import { hasJournalAdapter } from "@/lib/journal-agents";
 import { historyPath, spacePath } from "@/lib/nav";
-import { isReadOnly, statusLabel } from "@/lib/types";
+import { isReadOnly, statusLabel, type AgentView, type BridgeStatus, type DeviceAuth } from "@/lib/types";
 import { usePairing } from "@/lib/pairing";
-import type { AgentView, BridgeStatus, DeviceAuth, TabView } from "@/lib/types";
 import type {
   MenuModel,
   MultiSelectModel,
@@ -86,7 +80,6 @@ interface AgentChatProps {
   agent: AgentView | undefined;
   agents: AgentView[];
   shellPanes: AgentView[];
-  tabs: TabView[];
   /** Label of the pane's tab, shown in the header as "space › tab". */
   tabLabel?: string;
   /** Pane output from the route loader (refreshed by polling/revalidation). */
@@ -109,52 +102,11 @@ interface AgentChatProps {
   onSelect: (paneId: string) => void;
 }
 
-/**
- * The fold chevron's accessible name, chosen for what is actually on screen. The glyph names
- * nothing, and "Hide tabs and panes" over a screen with no pane row is a promise about a row that
- * is not there — the summary bar's own name is built the same way, from the same two counts.
- */
-function foldLabelKey(tabCount: number, paneCount: number): MessageKey {
-  if (tabCount > 0 && paneCount > 1) return "chat.strips.hide.both";
-  if (tabCount > 0) return "chat.strips.hide.tabs";
-  return "chat.strips.hide.panes";
-}
 
 // At most one drawer/sheet is open at a time; null = none. (The composer's own Keys/Quick/Agent
 // sheets are separate and live inside <Composer>.)
 type Drawer = "switcher" | "paneMenu" | null;
 
-/**
- * Is the caret in the MESSAGE COMPOSER's field, as opposed to any other input on the screen?
- *
- * Read by the strips' auto-fold, which may only spend the band when the keyboard on screen is the
- * composer's — see the gate for the failure that taught us the difference (the actions sheets'
- * rename field lives inside the band that folds).
- *
- * Delegated to the document rather than wired through `<Composer>`: the field is `ChatInput`, four
- * layers down and behind an imperative handle, and threading an `onFocus` up through all of it to
- * answer one question is more seam than the question is worth. `focusout` is read off
- * `relatedTarget` — the node about to take focus — because `document.activeElement` is `<body>` at
- * that moment, which would flip this false for one frame on every hop within the composer and start
- * the fold animating on a focus change that never left.
- */
-function useComposerFocus(): boolean {
-  const [focused, setFocused] = useState(false);
-  useEffect(() => {
-    const inComposer = (node: EventTarget | null) =>
-      node instanceof Element && node.closest('[data-slot="chat-input"]') !== null;
-    const onIn = (e: FocusEvent) => setFocused(inComposer(e.target));
-    const onOut = (e: FocusEvent) => setFocused(inComposer(e.relatedTarget));
-    setFocused(inComposer(document.activeElement));
-    document.addEventListener("focusin", onIn);
-    document.addEventListener("focusout", onOut);
-    return () => {
-      document.removeEventListener("focusin", onIn);
-      document.removeEventListener("focusout", onOut);
-    };
-  }, []);
-  return focused;
-}
 
 // The detail view mirrors a terminal pane, NOT a chat thread. The pane's output comes from the
 // route loader (`text`); polling revalidates it. Replies/keys are confirmed via the header status
@@ -171,7 +123,6 @@ export function AgentChat({
   agent,
   agents,
   shellPanes,
-  tabs,
   tabLabel,
   text,
   requestedLines = 0,
@@ -192,7 +143,7 @@ export function AgentChat({
   // current while we're reconnecting/lost, and restores instantly on recovery. Both marks dim
   // together — dimming only one of them would leave a frozen reading looking half live.
   const connecting = isConnecting({ bridge, error, stalled });
-  const { newTab, launch, launching, creatingTab } = useSpaceActions();
+  const { launch, launching } = useSpaceActions();
   const { launchers, home: launchersHome } = useLaunchers(scope);
   // Single display-prefs instance: the View controls (in <Composer>) write it, the mirror reads it.
   const { prefs, setWrap, stepFontSize, setRawTerminal, setTapToFocus } = useDisplayPrefs();
@@ -226,6 +177,18 @@ export function AgentChat({
             .filter((p) => p.workspaceId === agent.workspaceId && p.tabId === agent.tabId)
             .toSorted((a, b) => a.paneId.localeCompare(b.paneId)),
     [agent, agents, shellPanes],
+  );
+  // The agents working in this space, across tabs, in stable order — the run of session titles
+  // beside the switcher cravat. Same paneId ordering as `tabPanes` above, so the two agree about
+  // sequence wherever they overlap.
+  const spaceAgents = useMemo(
+    () =>
+      agent === undefined
+        ? []
+        : agents
+            .filter((a) => a.workspaceId === agent.workspaceId)
+            .toSorted((a, b) => a.paneId.localeCompare(b.paneId)),
+    [agent, agents],
   );
   // A hand-set name — the operator's `pane.rename` label, or Claude's own `/rename` session name —
   // names THIS PANE and nothing else. `undefined` and not falsiness, to match how `paneName` above
@@ -292,7 +255,6 @@ export function AgentChat({
   const [drawer, setDrawer] = useState<Drawer>(null);
   const closeDrawer = () => {
     setDrawer(null);
-    setPull(0);
   };
 
   // ── ZEN MODE — chrome-free, mirror-only viewing ───────────────────────────────
@@ -345,38 +307,50 @@ export function AgentChat({
     closeFind();
     setZen(true);
   }
+  // Auto-zen follows the ROTATION, and only the rotation: turning the phone sideways enters zen
+  // (a narrow tall mirror becomes a short wide one, and every chrome row costs terminal lines),
+  // turning it back leaves. But only a zen this effect entered — a hand-entered zen (the actions
+  // sheet's row, tapped in either orientation) is the operator's explicit choice and rotation must
+  // not steal it, so `autoZen` marks the effect's own entry and the portrait exit fires only on a
+  // marked one. Gated on `zenAvailable` like the manual entry point, so the Settings toggle kills
+  // both paths; losing availability mid-zen exits a marked entry rather than stranding it. Entry
+  // goes through `enterZen`, never bare setZen, so the find bar, sheets and staged key queue clear
+  // exactly as they do on a manual entry.
+  //
+  // The effect fires on every one of its deps changing — including the `zen` change a hand exit
+  // just made — so it acts ONLY on a flip (`wasLandscape`), never re-asserts. Without that, tapping
+  // the floating way out in landscape would exit and instantly re-enter. The ref starts portrait so
+  // mounting already sideways counts as a flip and opens chrome-free, matching a reload in hand.
+  const landscape = useMediaQuery("(orientation: landscape)");
+  const autoZen = useRef(false);
+  const wasLandscape = useRef(false);
+  useEffect(() => {
+    const flipped = landscape !== wasLandscape.current;
+    wasLandscape.current = landscape;
+    if (!zenAvailable) {
+      if (zen && autoZen.current) {
+        autoZen.current = false;
+        setZen(false);
+      }
+      return;
+    }
+    if (!flipped) return;
+    if (landscape && !zen) {
+      enterZen();
+      autoZen.current = true;
+    } else if (!landscape && zen && autoZen.current) {
+      autoZen.current = false;
+      setZen(false);
+    }
+  }, [landscape, zen, zenAvailable]);
   const listRef = useRef<ChatMessageListHandle>(null);
   const composerRef = useRef<ComposerHandle>(null);
 
   const gone = !agent;
 
-  // Drag the handle above the composer up to bring up the pane switcher, tracked finger-by-finger
-  // so the sheet peeks up under the thumb rather than appearing on release. Tapping is still the
-  // reliable fallback (the button's own onClick below). `pull` is the live upward travel in px, fed
-  // straight to the switcher BottomSheet's `pull` prop; a release past the open threshold buzzes and
-  // opens for real, a release short of it snaps back to 0. `pullFrom` is the handle's own distance
-  // from the viewport bottom, measured once per gesture (useSheetPull's `onAnchor`) — the handle
-  // sits above the composer, so without it the peek would rise from the screen's bottom edge with
-  // the composer sandwiched between the panel and the thumb dragging it.
-  const [pull, setPull] = useState(0);
-  const [pullFrom, setPullFrom] = useState(0);
-  const sheetPull = useSheetPull({
-    onPull: setPull,
-    onAnchor: setPullFrom,
-    onOpen: () => {
-      buzz();
-      setDrawer("switcher");
-      setPull(0);
-      setPullFrom(0);
-    },
-    onCancel: () => {
-      setPull(0);
-      setPullFrom(0);
-    },
-  });
   // ── COMPOSING MODE — read ONCE, here, for the whole pane ──────────────────────
   // The soft keyboard takes roughly 45% of a phone. What is left has to hold the header, the tab
-  // strip, the agent's statusline, the grab handle, the status band, the controls row and the draft
+  // strip, the agent's statusline, the grab handle, the controls row and the draft
   // — and the operator measured the result: the mirror shows ZERO rows of what the agent said while
   // three rows of cache percentages hold their ground, and the send button lands under the keyboard.
   //
@@ -385,104 +359,19 @@ export function AgentChat({
   // mid-sentence — and the statusline is reference data. Both come back untouched the instant the
   // keyboard closes, which is a state the operator causes and understands.
   //
-  // WHAT DOES NOT STAND DOWN IS THE STATUS BAND, and that is the operator's own suggestion declined
-  // with a reason. It is 14px, the cheapest row on the screen, and it is the only place the pane's
-  // state is spelled as a WORD rather than a coloured dot — which is why it exists (WCAG 1.4.1,
-  // status-badge.tsx holds the measurement). It is also read at exactly this moment: it answers
-  // "is this agent even waiting for me?" while the thumb is over Send. The 30px handle and the
-  // 21–112px statusline are 4–8x the pixels at none of the cost.
+  // The suggestion's second half — hiding the status band too — was declined with a reason: the
+  // band was the only place the pane's state was spelled as a WORD rather than a coloured dot
+  // (WCAG 1.4.1, status-badge.tsx holds the measurement), read at exactly this moment, with the
+  // thumb over Send. That band has since been removed outright, so the question is gone with it.
   //
   // Read once and passed down, never called again in a child: two components calling this hook
   // separately is two thresholds, two ideas of when the mode starts, and one boundary animating out
   // of step with itself.
   const composing = useKeyboardOpen();
-
-  // ── THE FOLDED STRIPS, AND THE ONE STATE THAT OVERRIDES THE PREFERENCE ────────
-  // The tab row and the pane row fold together into `StripsSummary`, a 32px bar of beads. One
-  // toggle, not two: they are one band of "chrome about the pane", they leave in one gesture, and a
-  // screen where the operator can hide the tabs but not the panes is a setting, not a fold.
-  //
-  // TWO TIERS AGAIN, AND THE SPLIT IS NOT ZEN'S. `stripsPref` is the operator's device-level choice
-  // (lib/strips-collapsed.ts) and it persists. `keyboardFold` is the transient override that exists
-  // only while the soft keyboard is up, and NOTHING about it is written down.
-  //
-  // Why the keyboard wins by default: the keyboard takes roughly 45% of the phone, and the rows are
-  // read BEFORE typing, never during it — the same test `composing` above applies to the pane
-  // switcher and the statusline, reached here for the same reason and answered the same way. So
-  // while the keyboard is up the rows stand down whatever the preference says.
-  //
-  // Why the override may not persist: an expand taken with the keyboard up is the operator saying
-  // "I need to see the tabs right now", not "show me the tabs from now on". Writing it would let one
-  // mid-sentence tap redefine every future pane. It therefore resets the moment the keyboard closes,
-  // and a fold taken in that state writes nothing either — it already matches the state the keyboard
-  // imposes, so there is nothing to record.
-  const stripsPref = useStripsCollapsed();
-  const [keyboardFold, setKeyboardFold] = useState<boolean | null>(null);
-  // ── AND WHOSE KEYBOARD IT IS, WHICH `composing` CANNOT ANSWER ────────────────
-  // `useKeyboardOpen` watches the viewport, so it says a keyboard is up and never says what asked
-  // for it — correct for the switcher and the statusline, which spend pixels the keyboard took
-  // whoever is typing. It is NOT enough here, because THE THING THAT FOLDS CONTAINS AN INPUT: the
-  // tab and pane actions sheets are rendered by TabStrip/PaneStrip, inside this band, and their
-  // rename field autofocuses. The operator taps Rename, the field's own keyboard opens, `composing`
-  // flips, the band folds, and 240ms later `Collapse` unmounts the strip — taking the sheet and the
-  // half-typed name with it. Nothing can be renamed on a phone at all. (The sheets stay in the band
-  // deliberately: they belong to the row that owns them. The gate is the fix, not a hoist.)
-  //
-  // So the auto-fold asks the second question too: is this the COMPOSER's keyboard? Only the
-  // composer's field is down at the bottom under the space this band would give back; a keyboard
-  // raised by anything else took its pixels from somewhere else and buys no fold here.
-  //
-  // OWNERSHIP IS LATCHED, not read live, and that is not an optimisation. Focus leaves the composer
-  // for every control the operator touches while typing — including the summary bar that puts these
-  // rows BACK — and a live read would hand the band back to `stripsPref` mid-gesture and let that
-  // tap write the device preference it is explicitly not allowed to write. So the composer claims
-  // the keyboard while it holds focus under one, and only the keyboard CLOSING releases the claim.
-  const composerHasFocus = useComposerFocus();
-  const [composerKeyboard, setComposerKeyboard] = useState(false);
-  useEffect(() => {
-    if (!composing) {
-      setComposerKeyboard(false);
-      return;
-    }
-    if (composerHasFocus) setComposerKeyboard(true);
-  }, [composing, composerHasFocus]);
-  useEffect(() => {
-    if (!composerKeyboard) setKeyboardFold(null);
-  }, [composerKeyboard]);
-  const stripsFolded = composerKeyboard ? (keyboardFold ?? true) : stripsPref;
-  function toggleStrips() {
-    if (composerKeyboard) {
-      setKeyboardFold(!stripsFolded);
-      return;
-    }
-    setStripsCollapsed(!stripsFolded);
-  }
-  // Is there anything to fold, and is there anywhere to put the control that folds it? TabStrip
-  // renders null when this space reports no tabs and PaneStrip renders null below two panes, so with
-  // both silent there is no band — no summary bar and no chevron, because a fold over nothing is a
-  // control that lies. The chevron itself is pinned to the TAB row's trailing end (see TabStrip's
-  // `trailing` slot), so the fold is offered exactly when that row exists: a snapshot that somehow
-  // carries panes but no tab for them keeps its pane row and is simply not foldable, which is the
-  // honest answer and not a second placement to maintain.
-  const stripTabs =
-    agent === undefined ? [] : tabs.filter((tab) => tab.workspaceId === agent.workspaceId);
-  const canFold = stripTabs.length > 0;
-  const stripsExist = canFold || tabPanes.length > 1;
-  const folded = canFold && stripsFolded;
-  // WHO OWNS THE 4px ABOVE THE MIRROR'S RULE.
-  //
-  // It reads as the mirror's own margin and it is not: it is the PAGE AN OPEN FOLDER TAB SITS ON,
-  // and the mirror's comment below states at length why it may not be 0 while such a tab exists.
-  // Parked on the mirror it was unconditional, so folded — no tab, nothing sitting on anything — it
-  // was 4px of nothing under a 24px bar, which is what the operator saw.
-  //
-  // So it moves to the row that needs it: the strips' own `pb-1`, INSIDE their `Collapse`. There it
-  // arrives and leaves with them, animated by the same 240ms, instead of popping on a boolean. The
-  // mirror then keeps a copy for exactly the states where that Collapse is not there to provide one
-  // — no strips at all, and zen, where the band is closed and the 4px is the hidden header's air
-  // rather than a tab's floor. Zen's resting geometry is byte-identical either way, which is the
-  // point of naming it here rather than folding it into `stripsExist`.
-  const mirrorGap = stripsExist && !zen ? "mt-0" : "mt-1";
+  // The 4px above the mirror's rule. It used to be the page an open folder tab sat on, moving
+  // between the strips' own `pb-1` and this copy as the band folded; with the strips gone there is
+  // no band to provide it, so the mirror keeps it unconditionally.
+  const mirrorGap = "mt-1";
   // Fold state for the "Switch pane" sheet's two long tails, shared with the dashboard so one
   // "hide the long tail" preference means the same thing in both places.
   const dash = useDashPrefs();
@@ -923,53 +812,6 @@ export function AgentChat({
     if (id !== paneId) onSelect(id);
   }
 
-  // Jump to another tab in this space by opening one of its panes (the in-pane tab bar).
-  function goToTab(tabId: string) {
-    if (!agent || tabId === agent.tabId) return;
-    const target = [...agents, ...shellPanes].find((p) => p.tabId === tabId);
-    if (target) switchTo(target.paneId);
-  }
-
-  // Closing the tab you are IN must not read as "leave the pane view" — it should read as closing a
-  // browser tab: you stay put and land on another tab of the same space. "Neighbouring" means what
-  // the strip on screen shows: TabStrip's own order, `tabs` filtered to this workspaceId (see
-  // tab-strip.tsx's `wsTabs`) — not `tabs` unfiltered, which would jump you across spaces.
-  //
-  // Preference order is next-in-strip first, previous only when the closed tab was last (so closing
-  // the middle of three lands right, closing the last lands left, matching how a browser tab bar
-  // behaves). Beyond that immediate neighbour, keep walking the same directions — forward through the
-  // rest, then backward through what's left before it — because a neighbouring tab can be a bare
-  // empty tab with no pane to land on (goToTab silently no-ops for one), and the empty tab must not
-  // strand the close. onBack() (Home) is the last resort, only when no tab in the space resolves to
-  // an open pane at all.
-  function closeCurrentTab(tabId: string) {
-    // ── IT SAYS SO, AND THE ORBIT TURNS WITH IT ─────────────────────────────────
-    // `closeTab` is classified `"echo"` in lib/ack-manifest.ts — the tab leaving the strip IS the
-    // outcome, so the ✓ on the tapped control carries only the acceptance. That reasoning is right
-    // for closing ANOTHER tab and wrong for this path, and the manifest's own neighbouring entry is
-    // the proof: `createTab` takes `"status"` because "the app navigates to the new pane, so the
-    // operator's eye has already left the control that was tapped". This function navigates too.
-    // The echo is on a button inside a strip that is about to unmount, on a screen the operator is
-    // about to leave — so the acknowledgement is drawn where nobody can be looking, which is the
-    // same as not drawing one. The operator reported it as the orbit not turning; the orbit not
-    // turning is the visible half of that.
-    //
-    // `setStatus` is the app's ONE definition of "worth telling the operator about" (lib/status.ts),
-    // and every publish turns the mark's orbit one round. Published BEFORE the navigation, on both
-    // exits, because it is the same fact either way — the tab you were in is gone and you are
-    // somewhere else now. The status layer is module-scoped and outlives the route change, which is
-    // the same thing routes/detail.tsx relies on when a pane closes under you.
-    setStatus(t("space.tab.closed"), "info");
-    if (!agent) return onBack();
-    const wsTabs = tabs.filter((tab) => tab.workspaceId === agent.workspaceId);
-    const closedIndex = wsTabs.findIndex((tab) => tab.tabId === tabId);
-    const candidates = [...wsTabs.slice(closedIndex + 1), ...wsTabs.slice(0, closedIndex).toReversed()];
-    for (const candidate of candidates) {
-      const target = [...agents, ...shellPanes].find((p) => p.tabId === candidate.tabId);
-      if (target) return switchTo(target.paneId);
-    }
-    onBack();
-  }
 
   // Open a space from the nav hub — go to its detail route (its tabs + panes, incl. shells). A step
   // back up out of the pane, so it slides backward.
@@ -1095,9 +937,10 @@ export function AgentChat({
           // row (the Spanish "desconocido" chip measures 111px and left the pane name 24px at 390px), and it was
           // sitting in the row's action neighbourhood while being the one thing here that is not an
           // action. It moved into the identity block, where the state belongs to the pane it
-          // describes — the dot badged onto the agent's own tile. The WORD that rides with it has
-          // since moved on again, down to the composer's status strip beside the host, and the dot
-          // stayed: DESIGN.md's reason for having both is unchanged, only where the word stands.
+          // describes — the dot badged onto the agent's own tile. The WORD that rode with it stood for a
+          // while on the composer's status strip beside the host; that strip is gone now, and the dot
+          // stayed: the state is a coloured mark plus the identity button's accessible name, and nothing
+          // else spells it.
           // The budget rule this holds to: one Leave (the Collie mark) + one flexible Identity, which
           // carries the state + at most two Actions. The Identity is the only flexible element; when
           // the row would squeeze it below a recognisable handle, the newest FIXED element leaves —
@@ -1165,8 +1008,8 @@ export function AgentChat({
               // caption line gone the block is 36px of lines (name 20 + gap 4 + cwd 12), or 20px with
               // no cwd, so the floor catches every case rather than only the short one. No vertical
               // padding on top of it, for the reason it never had any: lines plus padding must stay
-              // inside the row's 52px content box or the header grows on the pane route alone — the
-              // route-local growth `min-h-15` exists to prevent.
+              // inside the row's 44px content box or the header grows on the pane route alone — the
+              // route-local growth `min-h-13` exists to prevent.
               className="-mx-1 flex min-h-11 min-w-0 flex-1 items-center rounded-lg px-1 text-left transition-colors active:bg-muted/60"
             >
               {/* TWO lines with 4px between them — see the row's own note in app-header.tsx for why
@@ -1178,18 +1021,20 @@ export function AgentChat({
                   THE CAPTION LINE IS GONE, and the word it held is not. Line 1 carried the status
                   word alone once the host left for the composer, so the top of the pane spent a
                   whole line of a 60px row on one word — the operator asked for that top back. The
-                  word DID NOT get deleted with the line: simulated on the app's own `--status-*`
-                  tokens, a deuteranope reads blocked / working / done as ONE colour in light theme
-                  and "needs you" against "done" collapses in BOTH, so a dot alone cannot carry this
-                  range and deleting the word would have re-opened that failure (status-badge.tsx
-                  states the measurement). It moved DOWN, onto the composer's status strip beside the
-                  host, where "which machine, and what is it doing" reads as one sentence at the
-                  surface you are typing into. The dot badged onto the agent's tile above STAYS — it
+                  // word DID NOT get deleted with the line at the time: simulated on the app's own `--status-*`
+                  // tokens, a deuteranope reads blocked / working / done as ONE colour in light theme
+                  // and "needs you" against "done" collapses in BOTH, so a dot alone cannot carry this
+                  // range and deleting the word would have re-opened that failure (status-badge.tsx
+                  // states the measurement). It moved DOWN, onto the composer's status strip beside the
+                  // host, where "which machine, and what is it doing" read as one sentence at the
+                  // surface being typed into — and that strip has since been removed outright, so the
+                  // dot badged onto the agent's tile above is the visible mark that remains, named in
+                  // the accessibility tree. The dot STAYS — it
                   is the anchor that welds the state to its subject, and its ring is what separates
                   it from the Claude tile's own orange.
 
-                  The row does not shrink for the missing line: `min-h-15` is a FLOOR (app-header.tsx),
-                  36px of lines centred in it still measures 60px, and that floor is shared by every
+                  The row does not shrink for the missing line: `min-h-13` is a FLOOR (app-header.tsx),
+                  36px of lines centred in it still measures 52px, and that floor is shared by every
                   route and must not be lowered to fit this one. */}
               <div data-slot="pane-lines" className="flex min-w-0 flex-1 flex-col gap-1">
                 {/* Line 1: the agent's own mark, then the name. The mark used to stand OUTSIDE this
@@ -1225,9 +1070,9 @@ export function AgentChat({
                       <AgentIcon agent={agent.agent} className="size-4" />
                     )}
                     {/* A shell pane has no agent status, so it gets no badge — the tile alone says
-                        what it is, and the composer strip's "shell" says it in words. The dot IS
-                        named here, unlike every other StatusDot in the app: it is the only one that
-                        stands alone rather than leading a word, so unnamed it would be an empty span
+                        what it is. The dot IS named here, unlike every other StatusDot in the app: it
+                        is the only one that stands alone rather than leading a word, so unnamed it would
+                        be an empty span
                         that names nothing and matches no text query. In focus mode the button's own
                         aria-label is what a screen reader reads (a label replaces the content beneath
                         it) and that label already carries the status; this name is what answers a
@@ -1345,7 +1190,13 @@ export function AgentChat({
           {zen && (
             <button
               type="button"
-              onClick={() => setZen(false)}
+              onClick={() => {
+                // A hand exit clears the rotation's mark with it: without this the next portrait
+                // flip would "leave" a zen the operator already left, and — worse — the mark would
+                // still be set if they re-enter by hand and then rotate, stealing a manual zen.
+                autoZen.current = false;
+                setZen(false);
+              }}
               aria-label={t("chat.zen.exitAria")}
               className="absolute right-3 top-3 z-20 grid size-11 place-items-center rounded-full border border-rule bg-chrome text-muted-foreground transition-colors active:bg-muted/60"
             >
@@ -1394,168 +1245,20 @@ export function AgentChat({
                 nothing on a solo install, or while the host is live. */}
             <HostStaleBanner health={hostHealth} className="mx-3 mt-1.5" />
 
-            {/* THE TWO STRIPS, AND THE THIN BAR THAT STANDS IN FOR THEM — one band that morphs, not
-                two rows taking turns. `CollapseSwap` is nested inside zen's `Collapse`, so zen still
-                takes the whole band folded or not: the bar is chrome about the pane exactly as the
-                rows are. Whichever surface is not on screen is unmounted, so a folded screen has no
-                tab in the tab order and an unfolded one has no bar in it.
-
-                It was two sibling `Collapse`s on opposite gates, which is the obvious spelling and
-                the wrong one — the leaving bar was pushed the height of the band downward by the
-                arriving rows. CollapseSwap's own header carries that measurement; do not unpick it
-                back into siblings.
-
-                Rendered at all only when a row would have drawn: `stripsExist`. Nothing to fold is
-                not a folded thing. */}
-            {stripsExist && (
-              <CollapseSwap
-                open={!folded}
-                // The BAND, not two rows that happen to take turns in it — see CollapseSwap for what
-                // the two-sibling spelling did to the expand gesture. The bar is the stand-in: it is
-                // the shorter surface, so it holds the band's floor while the rows grow out of it.
-                standIn={
-                  agent && (
-                    <StripsSummary
-                      workspaceId={agent.workspaceId}
-                      tabs={tabs}
-                      agents={agents}
-                      host={agent.host}
-                      selectedTabId={agent.tabId}
-                      // The SAME list PaneStrip draws, so the bead group and the pill row can never
-                      // disagree about how many panes there are or which one is open.
-                      panes={tabPanes}
-                      currentPaneId={paneId}
-                      onExpand={toggleStrips}
-                    />
-                  )
-                }
-              >
-                {/* `pb-1` — the 4px of page the open folder tab sits on, which lives HERE rather than
-                    on the mirror so that it leaves with the tabs. See `mirrorGap` above. */}
-                <div className="pb-1">
-                {/* In-pane tab bar: the current space's tabs above the mirror — switch tab without
-                    leaving the pane, or create one with +. No "All" here (you're always in a
-                    specific tab). */}
-                {agent && (
-                  <TabStrip
-                    workspaceId={agent.workspaceId}
-                    host={agent.host}
-                    tabs={tabs}
-                    agents={agents}
-                    selected={agent.tabId}
-                    onSelect={(id) => id && goToTab(id)}
-                    onNewTab={newTab}
-                    creatingTab={creatingTab.has(agent.workspaceId)}
-                    allowAll={false}
-                    scope={scope}
-                    readOnly={readOnly}
-                    onRenamed={() => revalidator.revalidate()}
-                    // Closing the tab this pane lives in must not eject you to Home — see closeCurrentTab:
-                    // it lands you on a neighbouring tab of this space, and only falls back to onBack() when
-                    // the space has nothing left to land on. Closing any other tab just revalidates so it
-                    // drops out of the strip.
-                    onClosed={(tabId) => (agent?.tabId === tabId ? closeCurrentTab(tabId) : revalidator.revalidate())}
-                    // The fold's own control, pinned to the row's trailing end where it costs no height
-                    // — the tab row is already 44px, so this centres in pixels the row was spending
-                    // anyway. Same 32px square recipe as the "+" beside it: they are two controls of the
-                    // same rank in the same row, and drawing them differently would rank them.
-                    trailing={
-                      <button
-                        type="button"
-                        onClick={toggleStrips}
-                        aria-expanded={true}
-                        aria-label={t(foldLabelKey(stripTabs.length, tabPanes.length))}
-                        className={cn(
-                          STRIP_TAP_TARGET_SQUARE,
-                          "flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent active:scale-95",
-                        )}
-                      >
-                        <ChevronUp className="size-4" />
-                      </button>
-                    }
-                  />
-                )}
-
-                {/* Pane switcher: the panes that share this tab (space › tab › pane). Mobile shows them as a
-                    tabbed row rather than tiling the panes; only appears when the tab holds more than one. */}
-                {agent && (
-                  <PaneStrip
-                    // The SAME list the header's discriminator is gated on, and hoisted for that reason —
-                    // this row appearing and line 1 gaining a `pN` are one decision, taken once.
-                    panes={tabPanes}
-                    currentPaneId={paneId}
-                    onSelect={switchTo}
-                    scope={scope}
-                    readOnly={readOnly}
-                    onRenamed={() => revalidator.revalidate()}
-                    // Mirror closePane's success branch: closing the open pane returns Home, else revalidate.
-                    onClosed={(id) => (id === paneId ? onBack() : revalidator.revalidate())}
-                  />
-                )}
-                </div>
-              </CollapseSwap>
-            )}
           </Collapse>
 
           {/* Terminal mirror — tapping it focuses the composer so you can start typing right away
               (unless you're selecting text to copy, which the tap must not collapse). */}
           {/* min-w-0 only — do NOT set overflow-x-hidden here: that forces overflow-y to `auto` (CSS
               quirk) and makes this wrapper a second vertical scroller competing with ChatMessageList. */}
-          {/* THE MIRROR'S OWN TOP EDGE, and the PAGE the folder tab opens onto — `mt-1
-              border-t border-rule`, one set, do not separate them.
-
-              ── WHY THIS IS 4px AND NOT 0, WHICH IS WHAT WAS ASKED FOR ──────────────────
-              The operator wanted the tab row denser and chose this gap over shrinking the tab, which
-              was the right call: the tab is `h-11` and that 44px IS the tap target, so every pixel
-              off the tab is a pixel off the thumb. This gap costs no target at all. But it cannot go
-              to ZERO, and the reason is measured and sits three paragraphs below: the active tab's
-              fill and the terminal's ground are byte-identical under BOTH themes, on purpose, so
-              with no page between them the open tab has no floor and bleeds into the mirror. Closed
-              flush, the baseline rule and the mirror's top rule also land adjacent and read as one
-              doubled 2px hairline, which DESIGN.md §4 forbids by name.
-              4px keeps both properties — the tab still opens onto page, and the two rules still read
-              as two boundaries — and returns half the gap. It is the whole saving available above
-              the tap floor on this row; the row itself is 45px and 44 of that is the target.
-
-              The tab above is deliberately open at its bottom edge: that is what makes it a tab and
-              not a pill, and a tab opening downward promises continuity with the surface beneath it.
-              Beneath it here is the terminal mirror, which is a FOREIGN surface — a fixed ANSI
-              palette the light theme inverts wholesale (components/mirror-space.ts). Worse, the two
-              grounds are byte-identical on purpose: `--background` is oklch(0.145) = #0a0a0a in dark,
-              which is MIRROR_SPACE's own fill, and oklch(0.97) = rgb(245) in light, which is exactly
-              what that fill inverts to (index.css:44-48 says so, and closing the mirror's seam
-              against the page is why the value was chosen). So the active tab's `bg-background` fill
-              and the terminal ground were literally the same colour, under both themes: the tab had
-              no floor and read as bleeding into the terminal.
-
-              The fix is not a second rule at the tab's baseline. That was tried and is wrong twice
-              over: the baseline already carries one, and the active tab covers it for its own width
-              with a 1px cover strip, so a rule drawn flush from below is a pixel the tab cannot
-              reach and shows through under the open tab. The fix is to give the tab something of its
-              own to sit on. `mt-1` is 4px of PAGE below the baseline — the tab now opens onto the
-              page, which is what a folder tab's open edge promises — and `border-t` is then the
-              mirror's own top edge, clear of the baseline, so the two lines read as two
-              boundaries and never as one doubled hairline. (It was 8px; see the header for why it
-              is now 4 and why it may not be 0.)
-
-              It costs nothing. `ChatMessageList` below dropped the matching 12px of scroller
-              `pt` in the same edit: the padding was invisible (page colour on page colour when at
-              the top of the buffer, and gone entirely the moment the mirror follows the tail, which
-              is nearly always), so 12px of nothing became 9px of an actual boundary — the stack
-              above the first terminal glyph got 3px SHORTER. A terminal draws to its own edges;
-              flush against its top rule is the honest rendering, and the bottom keeps its `pb-3`
-              because the tail wants clearance from the composer.
-
-              THE RULE IS UNCONDITIONAL. THE GAP IS NOT, AND THE SPLIT IS THE WHOLE POINT.
-              `border-t border-rule` is drawn in every state, always, at the same weight: it is the
-              mirror's own top edge and the one seam between chrome and output, so there is no state
-              in which that boundary is drawn differently (DESIGN.md §2). Whether PaneStrip renders,
-              whether the strips are folded, whether zen took the band entirely — the line is there.
-              What moves is the 4px above it (`mirrorGap`, stated where `folded` is), because that
-              4px was never the mirror's: it is the page an open FOLDER TAB sits on, and it exists
-              only while a folder tab does. Folded, the tab row is gone and the bead bar that stands
-              in for it is not attached to anything, so the page it would sit on is dead space — the
-              operator read it as such. Nothing about the seam changes; only who is standing on it. */}
+          {/* NO TOP RULE HERE — the header's own `border-b` is the one seam between chrome and
+              output (DESIGN.md §2: one boundary, never two). The mirror used to draw a second rule
+              4px below it, and the gap between them read as the doubled hairline §4 forbids by
+              name. That second rule was the page an open folder tab sat on — but no tab strip
+              renders above the mirror anymore, so it separated nothing from nothing. `mt-1` stays:
+              4px of page between the header's rule and the first glyph is breathing room, not a
+              boundary. In zen the header's edge goes transparent with the row, and the mirror
+              correctly draws nothing: there is no chrome left to separate from. */}
           {/* `role="presentation"` because that is what this element is: a layout wrapper with no
               semantics of its own. Its click handler adds nothing a keyboard user needs — focusing the
               composer is what a keyboard user already has (the textarea is the next tabbable thing),
@@ -1565,7 +1268,7 @@ export function AgentChat({
             role="presentation"
             className={cn(
               mirrorGap,
-              "min-h-0 min-w-0 flex-1 border-t border-rule",
+              "min-h-0 min-w-0 flex-1",
               mirrorFace.className,
             )}
             style={mirrorFace.style}
@@ -1577,11 +1280,8 @@ export function AgentChat({
               onAtBottomChange={setFollowing}
               hasNew={hasNew}
               // `pt-0`, stated and not merely omitted — ChatMessageList's own base is `px-3 py-4`,
-              // so dropping the `pt` from this override would let 16px BACK in, not 0. The 12px this
-              // row used to carry paid for the mirror's new top rule above; it was never visible
-              // anyway (page colour on page colour at the top of the buffer, and scrolled away the
-              // moment the mirror follows the tail). `pb-3` stays: the tail wants clearance from the
-              // composer.
+              // so dropping the `pt` from this override would let 16px BACK in, not 0. `pb-3`
+              // stays: the tail wants clearance from the composer.
               className="px-2 pt-0 pb-3"
             >
               {display ? (
@@ -1695,7 +1395,7 @@ export function AgentChat({
               (hooks/use-keyboard.ts) — so the bound follows the real device instead of encoding one
               phone's pixels. `shrink-0` is what makes that bound the whole story. */}
           {/* …AND THE CHROME BELOW IT, the same way. The whole bottom region is ONE row of this
-              column — the statusline, the grab handle, the status band and the composer are its
+              column — the statusline, the grab handle and the composer are its
               parts, not its siblings — so zen takes it out as one row, through `Collapse`. Wrapping
               the region rather than each part is what keeps the parts' own relationships intact: the
               statusline is still the row immediately before the chrome block, and the handle is
@@ -1766,74 +1466,30 @@ export function AgentChat({
                 )}
               </Collapse>
 
-              {/* Swipe-up / tap handle for the quick pane switcher — the sheet that switches AND closes
-                  panes (each row has a ✕). A tall, full-width hit area so the swipe is easy to land (and a
-                  tap always works). Shown whenever a pane is open — even the last one, so it stays
-                  closable now that the nav drawer is gone. `touch-none` so the gesture is ours, not a
-                  browser scroll.
+              {/* The agents row: a left-edge cravat opening the full switcher sheet, beside a
+                  horizontally scrollable run of this space's agent session titles. It stands where
+                  the tap handle stood — directly above the composer, below the agent's statusline —
+                  and that order is the same fix: a control the thumb reaches for by muscle memory
+                  may not move because the terminal printed something (DESIGN.md §2). The statusline
+                  stays the mirror's own last row, cut from the pane tail.
 
-                  IT SITS DIRECTLY ABOVE THE COMPOSER, BELOW THE AGENT'S STATUSLINE, AND THAT ORDER IS
-                  THE FIX RATHER THAN A PREFERENCE. It used to render ABOVE the statusline, which made
-                  its position a function of pane state: on a pane whose agent prints a statusline the
-                  handle stood 50px further up than on one that does not, and the same handle moved
-                  again the moment the agent added or dropped a row (the strip is 1–3 rows, re-derived
-                  every poll). A control the thumb reaches for by muscle memory may not move because the
-                  terminal printed something — DESIGN.md §2. Rendered here it is always the last thing
-                  above the composer's status band, on every pane and in every state.
-
-                  It also puts the statusline back where it belongs: that strip is the mirror's own last
-                  row, cut from the pane tail, and a 34px gap with a grab handle in it read as a seam
-                  between the terminal and a piece of chrome that IS the terminal. */}
-              {/* THE CHROME BLOCK, DRAWN ONCE. Everything the thumb operates — the grab handle, the
-                  status band, the controls, the input — stands on ONE surface, closed against the
-                  terminal above by ONE rule. The handle used to stand OUTSIDE it, on the mirror's own
-                  black: the dock read as chrome and the handle floating above it read as part of the
-                  terminal, a control with no ground. That is what "hard to distinguish" meant in dark,
-                  where `--background` IS the mirror's fill (mirror-space.ts) and a 6px grip at
-                  `bg-muted-foreground/50` was the only thing on screen saying a control was there.
-                  Given the dock's own ground it is a handle ON the chrome, which is what it does.
-
-                  The rule and the fill live HERE rather than on the composer's dock so that boundary
-                  is UNCONDITIONAL: the handle inside is gated on there being a pane to switch to, this
-                  block is not, so the mirror is closed by one hairline in every state (DESIGN.md §2,
-                  §4). The composer keeps its own `bg-chrome` — the same value, so nothing changes
-                  visually — which leaves it self-sufficient wherever it is mounted alone.
-
-                  THE FILL IS `--chrome`, NOT `--muted`. Chrome is normally the page colour separated
-                  by a rule, and this is the one place that rule cannot hold: the block sits on the
-                  terminal mirror, and in dark `--background` IS the mirror's fill (mirror-space.ts).
-                  It needs a fill. --muted was the wrong one — rgb(38) under a rgb(10) terminal, a
-                  bright slab across the bottom of a dark screen, and the operator asked for it
-                  darker. --chrome is rgb(23) in dark, the same raised surface the sheets stand on,
-                  and unchanged at rgb(235) in light, where --card would be pure white and land
-                  1.04:1 against the inverted mirror. index.css states the whole argument. */}
+                  It stands down while the keyboard is up: switching sessions is a BEFORE-typing
+                  act, so the row costs its height at the one moment it cannot be wanted. The sheet
+                  stays reachable the instant the keyboard closes, and `Collapse` unmounts the row
+                  at the end of the exit so it leaves the tab order with the pixels. */}
               <div data-slot="chrome-block" className="border-t border-rule bg-chrome">
-                {/* …and stands down while the keyboard is up, for 30px (`py-3` around the 6px
-                    grip, it was py-3.5/34px until the 2026-08-31 shave; the drag is tracked from
-                    the first pixel past useSheetPull's own slop, and the strip is full-width, so the
-                    gesture still lands). Switching panes is a
-                    BEFORE-typing act, so the row costs its height at the one moment it cannot be
-                    wanted. Nothing is stranded: the tab strip above still switches, the sheet is still
-                    reachable the instant the keyboard closes, and `Collapse` unmounts the button at
-                    the end of the exit so it leaves the tab order with the pixels.
-
-                    Also shown whenever launchers are declared, even with a single pane and no
-                    shells: a lone pane with launchers still needs a way to reach them. */}
                 <Collapse
                   open={
                     !composing &&
                     (agents.length + shellPanes.length > 0 || launchers.length > 0)
                   }
                 >
-                  <button
-                    type="button"
-                    aria-label={t("chat.switcher.aria")}
-                    ref={sheetPull.ref}
-                    onClick={() => setDrawer("switcher")}
-                    className="flex w-full touch-none items-center justify-center py-3 transition-colors active:bg-muted/50"
-                  >
-                    <span className="h-1.5 w-12 rounded-md bg-muted-foreground/50" />
-                  </button>
+                  <SpaceAgentsRow
+                    agents={spaceAgents}
+                    currentPaneId={paneId}
+                    onSelect={switchTo}
+                    onOpenSwitcher={() => setDrawer("switcher")}
+                  />
                 </Collapse>
 
                 <Composer
@@ -1842,12 +1498,6 @@ export function AgentChat({
                   scope={scope}
                   agent={agent?.agent}
                   isShell={isShell}
-                  // The state, as the WORD on the composer's status strip. It used to be the pane
-                  // header's caption line; the dot badged onto the agent's tile up there stays, because
-                  // the two carry the range together (status-badge.tsx). `stale` is the same
-                  // `connecting` the dot reads, so the pair still dims as one.
-                  status={agent?.status}
-                  stale={connecting}
                   // The one read of the keyboard, handed down. See `composing` above.
                   composing={composing}
                   gone={gone}
@@ -1872,17 +1522,15 @@ export function AgentChat({
           </Collapse>
         </div>
 
-        {/* Swipe-up quick switcher — just the panes (agents + shells), reached by the thumb gesture.
-            Switch-only for panes: pane closing lives in the pane pill's long-press sheet, not here.
-            A trailing Launch section rides along (see ThreadSidebar): this is the launcher's other
-            home now that the pane header's rocket is gone, and the one reachable from inside a pane
-            without going home first. `pull` is the only BottomSheet this drag reveal drives. */}
+        {/* Quick switcher — just the panes (agents + shells), reached from the cravat. Switch-only
+            for panes: pane closing lives in the pane pill's long-press sheet, not here. A trailing
+            Launch section rides along (see ThreadSidebar): this is the launcher's other home now
+            that the pane header's rocket is gone, and the one reachable from inside a pane without
+            going home first. */}
         <BottomSheet
           open={drawer === "switcher"}
           onClose={closeDrawer}
           title={t("chat.switcher.title")}
-          pull={pull}
-          pullFrom={pullFrom}
         >
           <ThreadSidebar
             agents={agents}

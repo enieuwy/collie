@@ -68,7 +68,7 @@ interface HeaderClaim {
 }
 
 // What a route gets when no route has claimed the row: the bare shell. This is the FORGOT case, and
-// it is deliberately benign rather than empty — the mark, the strip, the rule and the 60px floor are
+// it is deliberately benign rather than empty — the mark, the strip, the rule and the 52px floor are
 // all the shell's own, so a route that renders no <RouteHeader/> at all still gets a real header of
 // the right height. The one thing it cannot get wrong is the thing the operator was looking at.
 const UNCLAIMED: HeaderClaim = { wordmark: false, width: "full", override: false, hidden: false };
@@ -221,36 +221,24 @@ export function AppHeaderHost({ bridge, error, children }: AppHeaderHostProps) {
             finds no target and renders nothing. */}
         <Collapse open={!claim.hidden}>
           <AlphaBar />
-          {/* The row has a FLOOR, not a fixed height: `min-h-15` (60px) = the 44px tap target every
-              icon control in here is built to + this row's own `py-2`. Before it, the row simply took
-              the height of the tallest thing a caller happened to pass, so the header was 60px on the
-              dashboard (the 44px SettingsGear) and 56px inside a pane (no gear, so the 40px mark was
-              tallest) — a 4px jump on every dashboard→pane navigation. A row whose height is decided by
-              its props cannot be stable, so the floor is stated here, once, and no caller can lower it.
-              `min-h` rather than `h`: a future child taller than 44px still GROWS the row instead of
-              being clipped or overflowing it — the header would get taller (on every route at once,
-              because they all mount this row), which is a visible design decision rather than a silent
-              overlap.
+          {/* The row has a FLOOR, not a fixed height: `min-h-13` (52px) = the 44px tap target every
+              icon control in here is built to + this row's own `py-1`. Before it, the row simply took
+              the height of the tallest thing a caller happened to pass, so the header was one height
+              on the dashboard (the 44px SettingsGear) and another inside a pane (no gear, so the 44px
+              mark was tallest) — a jump on every dashboard→pane navigation. A row whose height is
+              decided by its props cannot be stable, so the floor is stated here, once, and no caller
+              can lower it. `min-h` rather than `h`: a future child taller than 44px still GROWS the
+              row instead of being clipped or overflowing it — the header would get taller (on every
+              route at once, because they all mount this row), which is a visible design decision
+              rather than a silent overlap.
 
-              `py-1`, not `py-2` — and the 4px it gives back is not a saving, it is a RELOCATION. The
-              pane's identity block is three lines now (caption / name / cwd), and with 8px of outer
-              padding it had one leftover pixel to divide between them: measured, 8px above the block
-              against a 1px gap between its lines, an 8 : 1 ratio where the two-line block had been 5 : 1.
-              The line count rose 50% and the air between the lines halved, which is why fewer items did
-              not produce a calmer row — it reads as one grey paragraph rather than three lines. At `py-1`
-              the content box is 52px and the block spends it 12 / 4 / 20 / 4 / 12, so outer air and inner
-              air are both 4px and the row still measures exactly 60px on every route. Nothing moves and
-              nothing is clipped. What it gives up is the 8px of breathing room a future taller-than-44px
-              child would have got; it gets 4.
-
-              SINCE THEN the pane's block lost its caption line — the status word moved down to the
-              composer's status strip — so it is TWO lines and 36px, not three and 52px. `py-1` is
-              therefore no longer load-bearing here: 36px of lines centred inside a 60px floor leaves
-              12px of air above and below whether this padding is 4px or 8px, measured both ways. So
-              `py-2` would now read identically and would hand a future taller-than-44px child its 8px
-              back. That is a PROPOSAL, not a change — the number is left exactly where it was measured,
-              one variable at a time. */}
-          <div data-slot="header-row" className="flex min-h-15 items-center gap-2 pl-4 pr-2 py-1">
+              It was `min-h-15` (60px): 44px of child centred in a 52px content box, 4px of dead air
+              per side that no child asked for. The operator read the header as taller than needed,
+              and it was — the floor now fits the children exactly, so the row's air is the `py-1`
+              alone. The content box is 44px and every route's tallest child is 44px (mark, gear,
+              the pane's identity button), so nothing clips and every route still measures the same.
+              A future taller-than-44px child grows every route's header at once, by construction. */}
+          <div data-slot="header-row" className="flex min-h-13 items-center gap-2 pl-4 pr-2 py-1">
             {!claim.override && (
               <>
                 {/* The mark is the shell's, not a slot — which is now literal rather than a promise: it
@@ -291,12 +279,12 @@ export function AppHeaderHost({ bridge, error, children }: AppHeaderHostProps) {
                     centre, shared with every chip. The alignment holds by construction, not by a
                     compensating offset that would drift the next time a size changes.
 
-                    THE ROW'S HEIGHT STILL DOES NOT MOVE (DESIGN.md §2, §6). The row is `min-h-15`
-                    (60px) with `py-1`, a 52px content box, and its tallest child is the mark's 44px
+                    THE ROW'S HEIGHT STILL DOES NOT MOVE (DESIGN.md §2, §6). The row is `min-h-13`
+                    (52px) with `py-1`, a 44px content box, and its tallest child is the mark's 44px
                     tap box — this block now contributes 24px, less than before, so nothing grows.
                     The eyebrow is 11px at `leading-none` (the arbitrary size would otherwise take
-                    the body's 1.5 and draw 16.5px): from the block's top at 18px it reaches up to
-                    7px from the row's top edge, inside the row's own box with the top padding to
+                    the body's 1.5 and draw 16.5px): from the block's top at 14px it reaches up to
+                    3px from the row's top edge, inside the row's own box with the top padding to
                     spare. An out-of-flow child adds no width either — this block is sized by the
                     mux line alone, which the old flex column already guaranteed in practice (the
                     brand is the shorter run) and this makes true by construction; `max-w-full`

@@ -340,7 +340,6 @@ function chat(agentOver: Partial<(typeof fixtureAgents)[number]> = {}) {
     agent,
     agents: [agent],
     shellPanes: [],
-    tabs: [],
     text: "recent pane output",
     onBack: vi.fn(),
     onSelect: vi.fn(),

@@ -267,7 +267,6 @@ export function PaneRouter({
                   agent={fixture.pane}
                   agents={data.agents}
                   shellPanes={data.shellPanes}
-                  tabs={data.tabs}
                   tabLabel={fixture.pane.tabLabel}
                   text={fixture.text}
                   requestedLines={400}
@@ -373,7 +372,6 @@ function StackPane({ data, fixture }: { data: HomeData; fixture: PaneFixture }) 
       agent={fixture.pane}
       agents={data.agents}
       shellPanes={data.shellPanes}
-      tabs={data.tabs}
       tabLabel={fixture.pane.tabLabel}
       text={fixture.text}
       requestedLines={400}

@@ -103,8 +103,8 @@ describe("the header — the one shared shell", () => {
   it("states the row's own height instead of inheriting it from whatever a caller passed", () => {
     // THE SHIFT BUG. This row used to be `flex items-center … py-2` with no height of its own, so it
     // took the height of its tallest CHILD — and the children are props. On the dashboard the tallest
-    // was the 44px SettingsGear (row 60px); inside a pane there is no gear, so the 40px Collie mark
-    // won (row 56px), and every dashboard→pane navigation jumped the header 4px. A row whose height
+    // was the 44px SettingsGear; inside a pane there is no gear, so the Collie mark won, and every
+    // dashboard→pane navigation jumped the header. A row whose height
     // is decided by its props cannot be stable, so the floor is stated on the row itself. Asserted
     // two ways: the floor is there, and the two variants produce the SAME row.
     const dash = renderHeader(
@@ -117,7 +117,7 @@ describe("the header — the one shared shell", () => {
     );
     const rowOf = (c: HTMLElement) => c.querySelector('header [data-slot="header-row"]')?.className ?? "";
     // min-h, not h: a child taller than the floor must still grow the row rather than be clipped.
-    expect(rowOf(dash.container)).toContain("min-h-15");
+    expect(rowOf(dash.container)).toContain("min-h-13");
     expect(rowOf(dash.container)).not.toMatch(/(^|\s)h-\d/);
     // Same row, whatever the caller handed in — the geometry is the shell's, not the route's.
     expect(rowOf(pane.container)).toBe(rowOf(dash.container));
@@ -364,15 +364,15 @@ describe("the header — the stacked identity", () => {
   });
 
   // THE HEIGHT CONTRACT, which the stack had to fit inside rather than grow (DESIGN.md §2, §6).
-  // The row is `min-h-15` — 60px — with `py-1`, so its content box is 52px and its tallest child is
+  // The row is `min-h-13` — 52px — with `py-1`, so its content box is 44px and its tallest child is
   // the mark's 44px tap box. The block contributes only the mux line — `text-base`, 16px on a 24px
   // line box — because the brand is out of flow; the brand is an arbitrary 11px at `leading-none`
   // (the inherited 1.5 would draw 16.5px and put its top 5.5px higher, past the row's top padding).
-  // From the centred block's top at 18px, 11px of eyebrow reaches to 7px from the row's edge —
+  // From the centred block's top at 14px, 11px of eyebrow reaches to 3px from the row's edge —
   // inside the box. jsdom lays nothing out, so what is asserted is the sizes that arithmetic is
   // made of: raise either tier or drop `leading-none` and this fails, which is the point — the
   // numbers have to be re-measured before the row is allowed to change.
-  it("spends the two lines inside the row's existing 60px floor", async () => {
+  it("spends the two lines inside the row's existing 52px floor", async () => {
     server.use(
       http.get("/api/config", () =>
         HttpResponse.json({
@@ -392,7 +392,7 @@ describe("the header — the stacked identity", () => {
     expect(brand?.className).toContain("leading-none"); // …on an 11px line box, not 16.5px
     expect(muxLine?.className).toContain("text-base"); // 24px line box — the block's whole height
     const row = container.querySelector('header [data-slot="header-row"]');
-    expect(row?.className).toContain("min-h-15");
+    expect(row?.className).toContain("min-h-13");
     expect(row?.className).not.toMatch(/(^|\s)h-\d/);
   });
 
@@ -565,13 +565,12 @@ describe("the ONE header — hoisted above the outlet", () => {
   it("keeps the row's height recipe byte-identical across a navigation", async () => {
     // jsdom lays nothing out, so "60px" is not measurable here — what IS measurable is that the row
     // is the same element carrying the same class string on every route, which is the property the
-    // pixels follow from. (The pixels were measured in a browser: 79.75px of header, dashboard and
-    // pane alike, before and after this change.) The floor itself is asserted above, in "states the
+    // pixels follow from. The floor itself is asserted above, in "states the
     // row's own height instead of inheriting it from whatever a caller passed".
     const { container, go } = renderHoisted();
     const row = container.querySelector<HTMLElement>('[data-slot="header-row"]');
     const recipe = row?.className ?? "";
-    expect(recipe).toContain("min-h-15");
+    expect(recipe).toContain("min-h-13");
     expect(recipe).not.toMatch(/(^|\s)h-\d/);
     for (const to of ["/pane", "/settings", "/"]) {
       await go(to);

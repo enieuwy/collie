@@ -88,7 +88,6 @@ export function DetailRoute() {
       agent={agent}
       agents={root.agents}
       shellPanes={root.shellPanes}
-      tabs={root.tabs}
       tabLabel={tabLabel}
       text={pane.text}
       requestedLines={pane.requestedLines}
