@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import { ChevronLeft } from "lucide-react";
 
 import { useLocale } from "@/hooks/use-locale";
+import { useLongPress } from "@/hooks/use-long-press";
+import { useSwipeUp } from "@/hooks/use-swipe";
 import { t as translate } from "@/lib/i18n";
 import { paneDisplayName, type AgentView } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -19,9 +21,17 @@ interface SpaceAgentsRowProps {
   onSelect: (paneId: string) => void;
   /** Opens the switcher sheet — the handle's old job, kept on the cravat. */
   onOpenSwitcher: () => void;
+  /** A hold on a chip opens that pane's options (rename, close) — the pane pill's old sheet. */
+  onHoldPane: (pane: AgentView) => void;
 }
 
-export function SpaceAgentsRow({ agents, currentPaneId, onSelect, onOpenSwitcher }: SpaceAgentsRowProps) {
+export function SpaceAgentsRow({
+  agents,
+  currentPaneId,
+  onSelect,
+  onOpenSwitcher,
+  onHoldPane,
+}: SpaceAgentsRowProps) {
   useLocale();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -31,18 +41,24 @@ export function SpaceAgentsRow({ agents, currentPaneId, onSelect, onOpenSwitcher
   // "not implemented".
   useEffect(() => {
     const box = scrollRef.current;
+    // SAFETY: the only [aria-current] descendants here are the chips, which are <button>s.
     const current = box?.querySelector("[aria-current]") as HTMLElement | null;
     if (box && current) {
       box.scrollLeft = current.offsetLeft - box.clientWidth / 2 + current.clientWidth / 2;
     }
   }, [currentPaneId]);
+  // Dragging UP anywhere on the row opens the quick switcher — the same sheet as the cravat,
+  // for the thumb that starts on a chip rather than the edge. Touch-only and read-only: it
+  // never preventDefaults, so the row's horizontal scroll and every chip tap pass through.
+  const swipe = useSwipeUp(onOpenSwitcher);
 
   return (
-    <div data-slot="space-agents" className="flex h-7 items-center gap-1.5">
-      {/* The cravat: a tab on the row's leading edge, the switcher's only entry. Half-pill —
-          flat against the chrome it hangs off, round on the side the thumb meets, with a left
-          chevron pointing back at the sheet it opens — and the sheet's own accessible name, so
-          it stays findable by the string the handle answered to. */}
+    <div data-slot="space-agents" className="flex h-7 items-center gap-1.5" {...swipe}>
+      {/* The cravat: a tab on the row's leading edge, opening the switcher sheet — one of two
+          doors, the other being a swipe up anywhere on the row. Half-pill, flat against the
+          chrome it hangs off, round on the side the thumb meets, with a left chevron pointing
+          back at the sheet it opens — and the sheet's own accessible name, so it stays findable
+          by the string the handle answered to. */}
       <button
         type="button"
         onClick={onOpenSwitcher}
@@ -56,27 +72,53 @@ export function SpaceAgentsRow({ agents, currentPaneId, onSelect, onOpenSwitcher
         ref={scrollRef}
         className="flex flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain py-1 pr-3 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {agents.map((a) => {
-          const current = a.paneId === currentPaneId;
-          return (
-            <button
-              key={a.paneId}
-              type="button"
-              onClick={() => onSelect(a.paneId)}
-              aria-current={current ? "true" : undefined}
-              title={paneDisplayName(a)}
-              className={cn(
-                "h-6 max-w-44 shrink-0 truncate rounded-md px-2 text-[13px] font-medium whitespace-nowrap transition-colors select-none active:scale-95",
-                current
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted/60",
-              )}
-            >
-              {paneDisplayName(a)}
-            </button>
-          );
-        })}
+        {agents.map((a) => (
+          <AgentChip
+            key={a.paneId}
+            agent={a}
+            current={a.paneId === currentPaneId}
+            onSelect={onSelect}
+            onHoldPane={onHoldPane}
+          />
+        ))}
       </div>
     </div>
+  );
+}
+
+// One chip, split out so the hold gets its own hook instance — hooks in the map above would
+// change count with the session list. The pane pill's old shape (pane-strip.tsx): tap selects,
+// hold opens that pane's options, and the hook eats the click after a fired hold so a hold
+// never switches panes on release.
+function AgentChip({
+  agent,
+  current,
+  onSelect,
+  onHoldPane,
+}: {
+  agent: AgentView;
+  current: boolean;
+  onSelect: (paneId: string) => void;
+  onHoldPane: (pane: AgentView) => void;
+}) {
+  const hold = useLongPress(() => onHoldPane(agent));
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(agent.paneId)}
+      {...hold}
+      aria-current={current ? "true" : undefined}
+      title={paneDisplayName(agent)}
+      className={cn(
+        // [-webkit-touch-callout:none] joins the select-none the chip already had: without it
+        // iOS Safari's native hold gesture fires pointercancel and kills the timer (ui/chip.tsx).
+        "h-6 max-w-44 shrink-0 truncate rounded-md px-2 text-[13px] font-medium whitespace-nowrap transition-colors select-none active:scale-95 [-webkit-touch-callout:none]",
+        current
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:bg-muted/60",
+      )}
+    >
+      {paneDisplayName(agent)}
+    </button>
   );
 }

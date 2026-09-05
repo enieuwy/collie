@@ -252,11 +252,14 @@ export function AgentChat({
   );
 
   // Drawers/sheets are mutually exclusive — at most one open. A single value makes that invariant
-  // unrepresentable to violate.
   const [drawer, setDrawer] = useState<Drawer>(null);
   const closeDrawer = () => {
     setDrawer(null);
   };
+  // The pane a row-chip hold is pointing at. A second PaneActionsSheet below is bound to it —
+  // alongside the header's own, never instead: the drawer's single value can't carry WHICH pane,
+  // and both sheets are closed in every resting state, so at most one is ever open.
+  const [heldPane, setHeldPane] = useState<AgentView | null>(null);
   // Holding the session name opens the pane menu — the old header's gesture, kept beside the ⋮.
   // Tap still leaves for the space overview; the hook suppresses the click after a fired hold so
   // a hold never navigates. The sheet it opens is the same one (rename, close pane, find,
@@ -1499,6 +1502,7 @@ export function AgentChat({
                     currentPaneId={paneId}
                     onSelect={switchTo}
                     onOpenSwitcher={() => setDrawer("switcher")}
+                    onHoldPane={setHeldPane}
                   />
                 </Collapse>
 
@@ -1619,6 +1623,20 @@ export function AgentChat({
           // flexible element the budget protects. Zen is also the same FAMILY as the two rows it
           // joins — "look at the output differently" — so the menu it belongs in already existed.
           onZen={zenAvailable && display ? enterZen : undefined}
+        />
+        {/* The row-chip hold's sheet: the same PaneActionsSheet bound to the HELD pane, not the
+            open one. Write rows only (rename, close) — the strip precedent, stated on the sheet's
+            own props: find searches this screen's buffer and history opens this screen's
+            transcript, and neither means anything for a pane you are not looking at. onClosed
+            already handles both cases (leave if it was the open pane, revalidate otherwise). */}
+        <PaneActionsSheet
+          open={heldPane !== null}
+          onClose={() => setHeldPane(null)}
+          pane={heldPane}
+          scope={scope}
+          readOnly={readOnly}
+          onRenamed={() => revalidator.revalidate()}
+          onClosed={(id) => (id === paneId ? onBack() : revalidator.revalidate())}
         />
       </div>
     </CompactStripLabels>

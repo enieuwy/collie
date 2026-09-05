@@ -754,6 +754,34 @@ describe("AgentChat — space agents row", () => {
     await user.click(screen.getByRole("button", { name: "Switch pane" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
+
+  it("holding a chip opens that pane's options, not the switcher", () => {
+    // The pane pill's old sheet: rename + close for the HELD pane. Reaches the DOM as
+    // `contextmenu` (Android Chrome / right-click); the timer path is covered in
+    // use-long-press.test.ts, so this pins the wiring — the right pane in the right sheet.
+    const { props } = renderRow();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.contextMenu(screen.getByRole("button", { name: "redesign" }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Rename" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close pane" })).toBeInTheDocument();
+    // …and the hold never switched panes on the way in.
+    expect(props.onSelect).not.toHaveBeenCalled();
+  });
+
+  it("a swipe up on the row opens the same switcher as the cravat", () => {
+    renderRow();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    const row = document.querySelector<HTMLElement>('[data-slot="space-agents"]')!;
+    fireEvent.touchStart(row, { touches: [{ clientX: 200, clientY: 700 }] });
+    fireEvent.touchEnd(row, { changedTouches: [{ clientX: 205, clientY: 640 }] });
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch pane" })).toBeInTheDocument();
+  });
   });
 
   it("leaves an adapterless agent's input-box buffer fully raw — no status strip, box kept in the mirror", () => {
