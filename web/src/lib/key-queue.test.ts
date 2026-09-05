@@ -47,17 +47,17 @@ describe("composeKey", () => {
 
 describe("keyLabel", () => {
   it("labels chords, specials, and bare chars", () => {
-    expect(keyLabel("ctrl+g")).toBe("Ctrl G");
-    expect(keyLabel("shift+Tab")).toBe("⇧ Tab");
+    expect(keyLabel("ctrl+g")).toBe("⌃G");
+    expect(keyLabel("shift+Tab")).toBe("⇧Tab");
     expect(keyLabel("Escape")).toBe("Esc");
     expect(keyLabel("Enter")).toBe("⏎");
     expect(keyLabel("g")).toBe("G");
-    expect(keyLabel("ctrl+c")).toBe("Ctrl C");
+    expect(keyLabel("ctrl+c")).toBe("⌃C");
   });
 
   it("labels multi-modifier chords in leading order", () => {
-    expect(keyLabel("ctrl+shift+p")).toBe("Ctrl ⇧ P");
-    expect(keyLabel("ctrl+alt+shift+p")).toBe("Ctrl Alt ⇧ P");
+    expect(keyLabel("ctrl+shift+p")).toBe("⌃⇧P");
+    expect(keyLabel("ctrl+alt+shift+p")).toBe("⌃Alt⇧P");
     expect(keyLabel("alt+Up")).toBe("Alt Up");
   });
 
@@ -73,13 +73,13 @@ describe("keyLabel", () => {
   it("falls back to the token for plain multi-char keys", () => {
     expect(keyLabel("Down")).toBe("Down");
     expect(keyLabel("Tab")).toBe("Tab");
-    expect(keyLabel("Space")).toBe("Space");
+    expect(keyLabel("Space")).toBe("␣");
   });
 });
 
 describe("modifierLabel", () => {
   it("labels each surfaced modifier", () => {
-    expect(modifierLabel("ctrl")).toBe("Ctrl");
+    expect(modifierLabel("ctrl")).toBe("⌃");
     expect(modifierLabel("alt")).toBe("Alt");
     expect(modifierLabel("shift")).toBe("⇧");
   });

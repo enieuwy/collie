@@ -40,10 +40,11 @@ export function composeKey(mods: readonly Modifier[], base: string): string {
   return `${ordered.join("+")}+${base}`;
 }
 
-// Display label for a single surfaced modifier: `ctrl → "Ctrl"`, `alt → "Alt"`, `shift → "⇧"`.
-// Shared by keyLabel and the strip's ghost chip so the mapping lives in one place.
+// Display label for a single surfaced modifier: `ctrl → "⌃"`, `alt → "Alt"`, `shift → "⇧"`.
+// Glyphs where the platform has one (macOS ⌃⇧), words where it does not. Shared by keyLabel and
+// the strip's ghost chip so the mapping lives in one place.
 export function modifierLabel(m: Modifier): string {
-  if (m === "ctrl") return "Ctrl";
+  if (m === "ctrl") return "⌃";
   if (m === "alt") return "Alt";
   return "⇧"; // shift
 }
@@ -60,17 +61,31 @@ function leadingModLabel(token: string): string | null {
 }
 
 // Friendly display for a base token: special keys get short/glyph labels, a lone printable char is
-// upper-cased, everything else is returned as-is (Tab, Up, Space, …).
+// upper-cased, everything else is returned as-is (Tab, Up, …).
 function baseLabel(base: string): string {
   const lower = base.toLowerCase();
   if (lower === "escape") return "Esc";
   if (lower === "enter") return "⏎";
+  if (lower === "space") return "␣";
   if (base.length === 1) return base.toUpperCase();
   return base;
 }
 
-// Human chip label for a full key token: `"ctrl+g" → "Ctrl G"`, `"ctrl+shift+p" → "Ctrl ⇧ P"`,
-// `"shift+Tab" → "⇧ Tab"`, `"Escape" → "Esc"`, `"g" → "G"`. Consumes LEADING modifier tokens (in
+// Join chord parts the way the platform draws them: a glyph modifier (⌃/⇧) abuts on both
+// sides (`⌃C`, `⇧Tab`, `⌃⇧P`, `⌃Alt⇧P`), while word labels keep separating spaces (`Alt Tab`).
+// Narrow by construction — these labels live on phone-sized keys.
+export function joinChord(parts: readonly string[]): string {
+  const glyph = /^[⌃⇧]$/;
+  let out = "";
+  for (const part of parts) {
+    if (out !== "" && !glyph.test(out.slice(-1)) && !glyph.test(part)) out += " ";
+    out += part;
+  }
+  return out;
+}
+
+// Human chip label for a full key token: `"ctrl+g" → "⌃G"`, `"ctrl+shift+p" → "⌃⇧P"`,
+// `"shift+Tab" → "⇧Tab"`, `"Escape" → "Esc"`, `"g" → "G"`. Consumes LEADING modifier tokens (in
 // order) and runs the remainder through baseLabel. Total — `"+"` has no leading modifier so it falls
 // straight through to baseLabel ("+"), and an unknown token falls back to itself.
 export function keyLabel(key: string): string {
@@ -85,7 +100,7 @@ export function keyLabel(key: string): string {
   }
   const rest = tokens.slice(i).join("+");
   if (rest.length > 0 || labels.length === 0) labels.push(baseLabel(rest));
-  return labels.join(" ");
+  return joinChord(labels);
 }
 
 // The chords that interrupt / suspend / kill a running agent. NOTE: ctrl+c counts as danger HERE —

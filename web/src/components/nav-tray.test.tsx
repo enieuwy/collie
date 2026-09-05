@@ -87,7 +87,7 @@ describe("NavTray", () => {
     expect(isBefore(esc, ctrlC)).toBe(true);
     expect(isBefore(ctrlC, up)).toBe(true);
     // Reads the same as the Ctrl C preset it duplicates — one chord, one spelling, and not tmux's.
-    expect(ctrlC).toHaveTextContent("Ctrl C");
+    expect(ctrlC).toHaveTextContent("⌃C");
 
     await user.click(ctrlC);
     expect(onSend).toHaveBeenCalledExactlyOnceWith(["ctrl+c"]);
@@ -119,8 +119,8 @@ describe("NavTray", () => {
     await user.click(screen.getByRole("button", { name: /Enter/ }));
     expect(onSend).not.toHaveBeenCalled();
     expect(shiftBtn).toHaveAttribute("aria-pressed", "false");
-    // keyLabel renders Enter as "⏎", so the shift+Enter chip reads "⇧ ⏎".
-    expect(screen.getByRole("button", { name: "Remove ⇧ ⏎" })).toBeInTheDocument();
+    // keyLabel renders Enter as "⏎", so the shift+Enter chip reads "⇧⏎".
+    expect(screen.getByRole("button", { name: "Remove ⇧⏎" })).toBeInTheDocument();
 
     // Send fires the exact same string as before the refactor — only the WHEN changed.
     await user.click(screen.getByRole("button", { name: "Send" }));
@@ -142,7 +142,7 @@ describe("NavTray", () => {
 
     expect(onSend).not.toHaveBeenCalled();
     // The strip lives above both tabs, so the staged chip is visible on the digit pad.
-    expect(screen.getByRole("button", { name: "Remove ⇧ 7" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove ⇧7" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect(onSend).toHaveBeenCalledExactlyOnceWith(["shift+7"]);
@@ -153,11 +153,11 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "Ctrl" }));
+    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" }));
     await user.click(screen.getByRole("button", { name: "Tab" }));
 
     expect(onSend).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Remove Ctrl Tab" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove ⌃Tab" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Send" }));
     // Casing mirrors the shift path: base verbatim → "ctrl+Tab" (Herdr keys are case-insensitive).
@@ -169,11 +169,11 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "Ctrl" }));
+    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" }));
     const keyInput = screen.getByRole("textbox", { name: "Type a key to combine" });
     fireEvent.change(keyInput, { target: { value: "g" } });
 
-    expect(screen.getByRole("button", { name: "Remove Ctrl G" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove ⌃G" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect(onSend).toHaveBeenCalledExactlyOnceWith(["ctrl+g"]);
   });
@@ -183,7 +183,7 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "Ctrl" }));
+    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" }));
     await user.click(screen.getByRole("button", { name: "Down" })); // ctrl+Down (disarms)
     await user.click(screen.getByRole("button", { name: "Down" })); // queue non-empty → bare Down
     await user.click(screen.getByRole("button", { name: /Enter/ })); // bare Enter
@@ -198,12 +198,12 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "Ctrl" }));
+    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" }));
     await user.click(screen.getByRole("button", { name: "Tab" }));
     await user.click(screen.getByRole("button", { name: "Down" }));
 
-    await user.click(screen.getByRole("button", { name: "Remove Ctrl Tab" }));
-    expect(screen.queryByRole("button", { name: "Remove Ctrl Tab" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Remove ⌃Tab" }));
+    expect(screen.queryByRole("button", { name: "Remove ⌃Tab" })).toBeNull();
     expect(screen.getByRole("button", { name: "Remove Down" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Clear queued keys" }));
@@ -217,7 +217,7 @@ describe("NavTray", () => {
   it("the Alt modifier renders alongside Shift and Ctrl", () => {
     render(<NavTray onSend={vi.fn()} />);
     expect(screen.getByRole("button", { name: "⇧ Shift" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ctrl" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "⌃ Ctrl" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Alt" })).toBeInTheDocument();
   });
 
@@ -254,7 +254,7 @@ describe("NavTray", () => {
     render(<NavTray onSend={onSend} />);
 
     const shiftBtn = screen.getByRole("button", { name: /Shift/ });
-    const ctrlBtn = screen.getByRole("button", { name: "Ctrl" });
+    const ctrlBtn = screen.getByRole("button", { name: "⌃ Ctrl" });
 
     await user.click(ctrlBtn);
     await user.click(shiftBtn);
@@ -263,12 +263,12 @@ describe("NavTray", () => {
     expect(shiftBtn).toHaveAttribute("aria-pressed", "true");
 
     // Ghost chip previews the combined chord in canonical order.
-    expect(screen.getByText("Ctrl ⇧ + …")).toBeInTheDocument();
+    expect(screen.getByText("⌃⇧ + …")).toBeInTheDocument();
 
     // Type the base — composes ctrl+shift+p regardless of the shift-then… tap order.
     const keyInput = screen.getByRole("textbox", { name: "Type a key to combine" });
     fireEvent.change(keyInput, { target: { value: "p" } });
-    expect(screen.getByRole("button", { name: "Remove Ctrl ⇧ P" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove ⌃⇧P" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect(onSend).toHaveBeenCalledExactlyOnceWith(["ctrl+shift+p"]);
@@ -279,7 +279,7 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    const ctrlBtn = () => screen.getByRole("button", { name: "Ctrl" });
+    const ctrlBtn = () => screen.getByRole("button", { name: "⌃ Ctrl" });
     await user.click(ctrlBtn()); // once
     await user.click(ctrlBtn()); // locked
     expect(ctrlBtn().querySelector(".lucide-lock")).not.toBeNull();
@@ -292,7 +292,7 @@ describe("NavTray", () => {
     // Ctrl is still locked, so tapping Tab again re-stages ctrl+Tab with no re-arm.
     expect(ctrlBtn()).toHaveAttribute("aria-pressed", "true");
     await user.click(screen.getByRole("button", { name: "Tab" }));
-    expect(screen.getByRole("button", { name: "Remove Ctrl Tab" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove ⌃Tab" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect(onSend).toHaveBeenLastCalledWith(["ctrl+Tab"]);
@@ -304,7 +304,7 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    const ctrlBtn = () => screen.getByRole("button", { name: "Ctrl" });
+    const ctrlBtn = () => screen.getByRole("button", { name: "⌃ Ctrl" });
     await user.click(ctrlBtn()); // once
     await user.click(ctrlBtn()); // locked
     await user.click(screen.getByRole("button", { name: "Tab" })); // stage ctrl+Tab
@@ -353,13 +353,13 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "Ctrl" })); // arm → composing
+    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" })); // arm → composing
     await user.click(screen.getByRole("button", { name: "Presets" }));
     await user.click(screen.getByRole("button", { name: "Ctrl D" }));
 
     // No two-tap confirm on the queued path — the chord is staged directly.
     expect(screen.queryByRole("button", { name: "Confirm?" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Remove Ctrl D" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove ⌃D" })).toBeInTheDocument();
 
     // A queued danger chord (ctrl+d) styles Send destructive — but it still sends.
     const send = screen.getByRole("button", { name: "Send" });
@@ -389,7 +389,7 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "Ctrl" })); // arm → composing
+    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" })); // arm → composing
     await user.click(screen.getByRole("button", { name: "F keys" }));
     await user.click(screen.getByRole("button", { name: "F7" }));
 
@@ -444,13 +444,13 @@ describe("NavTray", () => {
     const onSend = vi.fn(async () => true);
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "Ctrl" })); // arm → compose mode
+    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" })); // arm → compose mode
     await user.click(screen.getByRole("button", { name: "Tab" }));
 
     expect(onSend).not.toHaveBeenCalled();
     // Tab stays at rest (outline); the chip in the strip carries the feedback instead.
     expect(screen.getByRole("button", { name: "Tab" })).not.toHaveClass("bg-primary");
-    expect(screen.getByRole("button", { name: /Remove Ctrl/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Remove ⌃/ })).toBeInTheDocument();
   });
 });
 
@@ -594,7 +594,7 @@ describe("NavTray — hold to repeat", () => {
     const onSend = vi.fn(async () => true);
     render(<NavTray onSend={onSend} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Ctrl" })); // arm → compose mode
+    fireEvent.click(screen.getByRole("button", { name: "⌃ Ctrl" })); // arm → compose mode
     const down = screen.getByRole("button", { name: /Down/ });
     fireEvent.pointerDown(down);
     await vi.advanceTimersByTimeAsync(HOLD_DELAY + REPEAT * 8);
@@ -677,8 +677,8 @@ describe("NavTray — operator preset rows", () => {
     await user.click(screen.getByRole("button", { name: "Yes" }));
     expect(onSend).not.toHaveBeenCalled();
     // Every chord of the row is composed with the armed modifier, in order.
-    expect(screen.getByRole("button", { name: "Remove ⇧ Down" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Remove ⇧ ⏎" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove ⇧Down" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove ⇧⏎" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect(onSend).toHaveBeenCalledExactlyOnceWith(["shift+Down", "shift+Enter"]);
@@ -690,7 +690,7 @@ describe("NavTray — operator preset rows", () => {
     render(<NavTray onSend={onSend} presets={[{ label: "Quit", keys: ["ctrl+d"], danger: true }]} />);
     await openPresets(user);
 
-    await user.click(screen.getByRole("button", { name: "Ctrl" }));
+    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" }));
     await user.click(screen.getByRole("button", { name: "Quit" }));
     expect(screen.queryByRole("button", { name: "Confirm?" })).toBeNull();
     expect(onSend).not.toHaveBeenCalled();

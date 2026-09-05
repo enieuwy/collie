@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { Modifier } from "@/lib/key-queue";
-import { isDangerKey, keyLabel, modifierLabel } from "@/lib/key-queue";
+import { isDangerKey, joinChord, keyLabel, modifierLabel } from "@/lib/key-queue";
 import { useLocale } from "@/hooks/use-locale";
 import { t } from "@/lib/i18n";
 
@@ -37,7 +37,7 @@ export function KeyQueueStrip({
 
   const danger = queue.some(isDangerKey);
   const modsArmed = mods.length > 0;
-  const modLabels = mods.map(modifierLabel).join(" ");
+  const modLabels = joinChord(mods.map(modifierLabel));
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-background/60 p-1.5">
@@ -61,7 +61,7 @@ export function KeyQueueStrip({
         );
       })}
 
-      {/* Modifiers armed, no base yet: a ghost chip showing the awaited chord (e.g. "Ctrl ⇧ + …"). */}
+      {/* Modifiers armed, no base yet: a ghost chip showing the awaited chord (e.g. "⌃ ⇧ + …"). */}
       {modsArmed && (
         <span className="inline-flex h-8 items-center rounded-md border border-dashed border-border px-2 text-xs text-muted-foreground">
           {modLabels} + …

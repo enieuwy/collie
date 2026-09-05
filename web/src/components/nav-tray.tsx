@@ -5,6 +5,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronDown, Lock } f
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { Modifier } from "@/lib/key-queue";
+import { keyLabel } from "@/lib/key-queue";
 import { usePendingConfirm } from "@/hooks/use-pending-confirm";
 import { useKeyQueue } from "@/hooks/use-key-queue";
 import { useActionEcho } from "@/hooks/use-action-echo";
@@ -257,7 +258,7 @@ export function NavTray({
               sight precisely because it is not what Herdr accepts either. */}
           <div className="grid grid-cols-4 gap-1.5">
             {navBtn("Esc", ["Escape"])}
-            {navBtn("Ctrl C", ["ctrl+c"], "Ctrl+C")}
+            {navBtn(keyLabel("ctrl+c"), ["ctrl+c"], "Ctrl+C")}
             {navBtn(<ArrowUp className="size-4" />, ["Up"], "Up", true)}
             {navBtn("⏎ Enter", ["Enter"])}
             {navBtn("Tab", ["Tab"])}
@@ -284,7 +285,7 @@ export function NavTray({
               idle). Display order Shift · Ctrl · Alt; compose order is canonical regardless of taps. */}
           <div className="grid grid-cols-3 gap-1.5">
             {modBtn("shift", "⇧ Shift")}
-            {modBtn("ctrl", "Ctrl")}
+            {modBtn("ctrl", "⌃ Ctrl")}
             {modBtn("alt", "Alt")}
           </div>
 
