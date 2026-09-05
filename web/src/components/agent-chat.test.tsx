@@ -1595,6 +1595,18 @@ describe("AgentChat — zen mode", () => {
     expect(box).not.toHaveFocus();
   });
 
+  it("holding the session name opens the same pane menu as the ⋮", () => {
+    // The old header's gesture: a hold on the identity block reaches the DOM as `contextmenu`
+    // (Android Chrome / right-click) and opens PaneActionsSheet. Tap still navigates to the
+    // space overview — userEvent clicks prove that path elsewhere — so this asserts only the
+    // hold door, through the same helper the ⋮ tests use to prove the sheet opened.
+    const { container } = renderChat();
+    const identity = container.querySelector('[data-slot="pane-identity"]')!;
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.contextMenu(identity);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
   it("offers exactly one Zen entry, in the pane menu", async () => {
     setZenEnabled(true);
     const user = userEvent.setup();

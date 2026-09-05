@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useKeyboardOpen } from "@/hooks/use-keyboard";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { useLongPress } from "@/hooks/use-long-press";
 import { useSpaceActions } from "@/hooks/use-spaces";
 import { useDashPrefs, openForCount } from "@/hooks/use-dash-prefs";
 import { useLaunchers } from "@/lib/launchers";
@@ -256,6 +257,11 @@ export function AgentChat({
   const closeDrawer = () => {
     setDrawer(null);
   };
+  // Holding the session name opens the pane menu — the old header's gesture, kept beside the ⋮.
+  // Tap still leaves for the space overview; the hook suppresses the click after a fired hold so
+  // a hold never navigates. The sheet it opens is the same one (rename, close pane, find,
+  // history), so there is one menu, two doors.
+  const identityHold = useLongPress(() => setDrawer("paneMenu"));
 
   // ── ZEN MODE — chrome-free, mirror-only viewing ───────────────────────────────
   // On a phone the chrome IS most of the viewport: measured at 390x844 this route spends 199px above
@@ -1002,6 +1008,7 @@ export function AgentChat({
               // so it is asserted mechanically in agent-chat.test.tsx. These slots are what that test
               // reads; renaming one without updating it fails there rather than on a phone.
               data-slot="pane-identity"
+              {...identityHold}
               // A REAL 44px hit box, stated. This button is the only way off the pane to the space
               // overview and it measured 39px — under the floor, in the row that states the floor for
               // everything else. `min-h-11` is 44px and it is now what DRAWS this button: with the
@@ -1010,7 +1017,10 @@ export function AgentChat({
               // padding on top of it, for the reason it never had any: lines plus padding must stay
               // inside the row's 44px content box or the header grows on the pane route alone — the
               // route-local growth `min-h-13` exists to prevent.
-              className="-mx-1 flex min-h-11 min-w-0 flex-1 items-center rounded-lg px-1 text-left transition-colors active:bg-muted/60"
+              // select-none + -webkit-touch-callout:none stop iOS Safari's selection loupe / touch
+              // callout, whose native long-press gesture otherwise fires pointercancel and kills
+              // the hold timer (ui/chip.tsx states the same pair for the same reason).
+              className="-mx-1 flex min-h-11 min-w-0 flex-1 touch-manipulation items-center rounded-lg px-1 text-left transition-colors select-none active:bg-muted/60 [-webkit-touch-callout:none]"
             >
               {/* TWO lines with 4px between them — see the row's own note in app-header.tsx for why
                   the air moved from outside the block to inside it. Each line states its own height
