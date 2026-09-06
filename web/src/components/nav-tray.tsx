@@ -159,7 +159,8 @@ export function NavTray({
   // `repeatable` opts a button into hold-to-repeat. While held, the button shows a live "×N" count
   // instead of running the per-press echo — echo.run per repeat tick would restart the ✓ timer ~11
   // times a second and strobe, the same reason sibling dimming is banned on this pad.
-  // `span` covers more grid columns (the wide Space is custom; the F9-F12 pairs use this).
+  // Idle keys are borderless muted tiles (ghost + bg-muted), Termius-pad style: 56 outlined
+  // buttons read as a wireframe. Pressed/echo states stay filled primary. `span` covers more grid columns (the wide Space is custom; the F9-F12 pairs use this).
   const navBtn = (content: ReactNode, keys: string[], aria?: string, repeatable = false, span = "") => {
     const id = keys.join(" ");
     const phase = echo.phaseOf(id);
@@ -173,14 +174,14 @@ export function NavTray({
     return (
       <Button
         type="button"
-        variant={held || phase !== "idle" ? "default" : "outline"}
+        variant={held || phase !== "idle" ? "default" : "ghost"}
         size="sm"
         disabled={disabled || refused}
         {...(bind ?? { onClick: () => fire(keys, id) })}
         aria-label={aria}
         // touch-action/select-none: without them a held button on iOS starts a text selection and
         // Android may treat the hold as a scroll gesture, both of which cancel the pointer stream.
-        className={`h-9 touch-manipulation px-0 text-xs font-medium select-none ${span}`}
+        className={`h-9 touch-manipulation px-0 text-xs font-medium select-none ${span} ${held || phase !== "idle" ? "" : "bg-muted"}`}
       >
         {held ? (
           <span className="mx-auto flex items-center gap-1">
@@ -204,13 +205,13 @@ export function NavTray({
     return (
       <Button
         type="button"
-        variant={mode === "off" ? "outline" : "default"}
+        variant={mode === "off" ? "ghost" : "default"}
         size="sm"
         disabled={disabled}
         onClick={() => arm(m)}
         aria-pressed={mode !== "off"}
         aria-label={aria}
-        className="h-9 px-0 text-xs font-medium"
+        className={mode === "off" ? "h-9 bg-muted px-0 text-xs font-medium" : "h-9 px-0 text-xs font-medium"}
       >
         {mode === "locked" && <Lock className="size-3" />}
         {label}
@@ -283,11 +284,11 @@ export function NavTray({
             {navBtn(<ArrowRight className="size-4" />, ["Right"], "Right", true)}
             <Button
               type="button"
-              variant={echo.phaseOf("Space") === "idle" ? "outline" : "default"}
+              variant={echo.phaseOf("Space") === "idle" ? "ghost" : "default"}
               size="sm"
               disabled={disabled || !keysSendable(["Space"], unsupportedKeys)}
               onClick={() => fire(["Space"], "Space")}
-              className="col-span-4 h-9 text-xs font-medium"
+              className={echo.phaseOf("Space") === "idle" ? "col-span-4 h-9 bg-muted text-xs font-medium" : "col-span-4 h-9 text-xs font-medium"}
             >
               {echo.phaseOf("Space") === "done" ? <Check className="size-4" /> : "Space"}
             </Button>

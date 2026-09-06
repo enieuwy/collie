@@ -417,7 +417,7 @@ describe("NavTray", () => {
     render(<NavTray onSend={onSend} />);
 
     const enter = screen.getByRole("button", { name: /Enter/ });
-    expect(enter).toHaveClass("border"); // outline variant at rest
+    expect(enter).toHaveClass("bg-muted"); // borderless muted tile at rest
     await user.click(enter);
 
     // Filled the instant it's tapped — synchronous, no network wait. That IS the fix.
