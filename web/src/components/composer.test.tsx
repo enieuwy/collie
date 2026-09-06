@@ -1938,13 +1938,25 @@ describe("Composer — keys dock (in-flow, not an overlay)", () => {
     expect(keysDock()).toBeNull();
   });
 
-  it("the dock's own X close button dismisses it", async () => {
+  it("a solo install shows no dock header — the toggle closes it", async () => {
     const user = userEvent.setup();
     renderComposer();
 
     await user.click(screen.getByRole("button", { name: "Keys" }));
     expect(dockKey("Esc")).toBeInTheDocument();
+    // No title, no X: the toggle and the fling are the exits.
+    expect(screen.queryByRole("button", { name: "Close Keys" })).toBeNull();
 
+    await user.click(padButton());
+    expect(keysDock()).toBeNull();
+  });
+
+  it("a host brings the dock header back — the X still dismisses it", async () => {
+    const user = userEvent.setup();
+    renderComposer({ scope: { host: "workshop" } });
+
+    await user.click(screen.getByRole("button", { name: "Keys" }));
+    // The header is back: title, the machine chip, and the X.
     await user.click(screen.getByRole("button", { name: "Close Keys" }));
     expect(keysDock()).toBeNull();
   });
@@ -1999,12 +2011,12 @@ describe("Composer — a composed key queue is guarded on the way out", () => {
     renderComposerWithStatus();
     await stageAKey(user);
 
-    await user.click(screen.getByRole("button", { name: "Close Keys" }));
+    await user.click(padButton());
     // Still open — the composed sequence is not thrown away on one tap.
     expect(screen.getByRole("button", { name: "Remove ⌃Tab" })).toBeInTheDocument();
     expect(screen.getByTestId("status")).toHaveTextContent(/discard 1 queued key/i);
 
-    await user.click(screen.getByRole("button", { name: "Close Keys" }));
+    await user.click(padButton());
     expect(keysDock()).toBeNull();
   });
 
@@ -2030,7 +2042,7 @@ describe("Composer — a composed key queue is guarded on the way out", () => {
 
     await user.click(screen.getByRole("button", { name: "Keys" }));
     await user.click(screen.getByRole("button", { name: "Ctrl" })); // armed, but nothing staged
-    await user.click(screen.getByRole("button", { name: "Close Keys" }));
+    await user.click(padButton());
 
     expect(keysDock()).toBeNull();
   });
@@ -2040,7 +2052,7 @@ describe("Composer — a composed key queue is guarded on the way out", () => {
     renderComposer();
 
     await user.click(screen.getByRole("button", { name: "Keys" }));
-    await user.click(screen.getByRole("button", { name: "Close Keys" }));
+    await user.click(padButton());
 
     expect(keysDock()).toBeNull();
   });
@@ -2052,11 +2064,11 @@ describe("Composer — a composed key queue is guarded on the way out", () => {
     renderComposer();
     await stageAKey(user);
 
-    await user.click(screen.getByRole("button", { name: "Close Keys" })); // arm
-    await user.click(screen.getByRole("button", { name: "Close Keys" })); // discard
+    await user.click(padButton()); // arm
+    await user.click(padButton()); // discard
 
     await user.click(screen.getByRole("button", { name: "Keys" })); // reopen, empty
-    await user.click(screen.getByRole("button", { name: "Close Keys" }));
+    await user.click(padButton());
     expect(keysDock()).toBeNull();
   });
 });

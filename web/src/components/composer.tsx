@@ -148,10 +148,14 @@ const KEY_REVALIDATE_MS = 300;
 // usable on a phone. The header (title + Close X) is a NON-scrolling child of a flex column; only the
 // body below it scrolls (max-h + overflow), so the Close X can never scroll out of reach on a short
 // viewport with a tall tray. One wrapper so Keys and Quick can't drift apart.
+// Keys goes bare on a single-host install (no title, no X): the Keys toggle and the fling both
+// close through the same discard confirm, so the header buys nothing there — but the HostChip it
+// carries IS the "which machine" safety mark, so any host at all keeps the full header.
 function ComposerDock({
   title,
   id,
   host,
+  bare,
   onClose,
   children,
 }: {
@@ -160,6 +164,8 @@ function ComposerDock({
   id: string;
   /** The machine a key sent from this dock lands on. Renders nothing on a single-host install. */
   host?: string;
+  /** Skip the header row entirely (title, host chip, X). Only Keys uses it, only hostless. */
+  bare?: boolean;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -173,22 +179,24 @@ function ComposerDock({
   });
   return (
     <div id={id} className="-mx-3 mb-2 flex flex-col border-t border-border bg-background" {...swipe}>
-      <div className="flex items-center justify-between px-3 pt-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <SectionLabel>{title}</SectionLabel>
-          {/* A key press from the Keys dock IS a write into a terminal — the dock names which one. */}
-          <HostChip host={host} variant="target" />
+      {!bare && (
+        <div className="flex items-center justify-between px-3 pt-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <SectionLabel>{title}</SectionLabel>
+            {/* A key press from the Keys dock IS a write into a terminal — the dock names which one. */}
+            <HostChip host={host} variant="target" />
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 text-muted-foreground"
+            onClick={onClose}
+            aria-label={translate("composer.dock.closeAria", { title })}
+          >
+            <X className="size-4" />
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7 text-muted-foreground"
-          onClick={onClose}
-          aria-label={translate("composer.dock.closeAria", { title })}
-        >
-          <X className="size-4" />
-        </Button>
-      </div>
+      )}
       <div ref={bodyRef} className="max-h-[45dvh] min-h-0 overflow-y-auto">{children}</div>
     </div>
   );
@@ -1005,6 +1013,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             id="dock-keys"
             title={translate("composer.controls.keys")}
             host={writeHost}
+            // Solo install: no machine to name, so no header at all (no title, no X). The Keys
+            // toggle and the fling close through the same discard confirm.
+            bare={writeHost == null}
             onClose={closeDrawer}
           >
             <NavTray
