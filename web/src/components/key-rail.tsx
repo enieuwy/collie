@@ -48,7 +48,7 @@ export function KeyRail({ onSend, unsupportedKeys, directActive, onOpenPad, padO
   const keys = directActive ? [...RAIL_KEYS, ...DIRECT_KEYS] : RAIL_KEYS;
 
   return (
-    <div data-slot="key-rail" className="-mr-1 mb-2 flex items-center gap-1.5">
+    <div data-slot="key-rail" className="-mr-3 mb-2 flex items-center gap-1.5">
       <div className="flex flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {keys.map((k) => {
           const phase = echo.phaseOf(k);
@@ -72,9 +72,10 @@ export function KeyRail({ onSend, unsupportedKeys, directActive, onOpenPad, padO
           );
         })}
       </div>
-      {/* Pinned pad button: the rail scrolls under it, it never scrolls away. Icon-only, wearing
-          the old Keys toggle's string so no dictionary gains a key. Borderless and dim — it is a
-          rail key, not a call to action. */}
+      {/* Pinned pad tab: the rail scrolls under it, it never scrolls away. The old edge cravat
+          mirrored — round cap on the left, filled flush to the screen edge on the right (`-mr-3`
+          bleeds the footer's own padding), so pins read as fixed chrome against scrolling
+          content. Icon-only, wearing the old Keys toggle's string so no dictionary gains a key. */}
       <Button
         type="button"
         variant="ghost"
@@ -84,7 +85,7 @@ export function KeyRail({ onSend, unsupportedKeys, directActive, onOpenPad, padO
         aria-label={translate("composer.controls.keys")}
         aria-expanded={padOpen}
         aria-controls="dock-keys"
-        className="h-8 shrink-0 touch-manipulation px-2.5 text-muted-foreground select-none"
+        className="h-8 shrink-0 touch-manipulation rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
       >
         <Keyboard className="size-4" />
       </Button>

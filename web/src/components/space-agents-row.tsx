@@ -118,12 +118,10 @@ export function SpaceAgentsRow({
           />
         ))}
       </div>
-      {/* The /Agents pin: the same box as the rail's pad key below (h-8, px-2.5, 16px glyph,
-          `-mr-1` inset) so the two glyphs share one column — a narrower box is what put it
-          6px left. Solid fill, not ghost: pins read as fixed chrome, chips as content. The
-          Terminal glyph replaces the Slash, which read as a stray pencil mark at this size.
-          Rendered only when something is pickable — the palette's own gate — and dead while
-          the device may not write. */}
+      {/* The /Agents pin: the rail's pad tab twin — same box, same edge tab (round cap left,
+          filled flush right), so the two glyphs share one column down both rows. Rendered only
+          when something is pickable — the palette's own gate — and dead while the device may
+          not write. */}
       {commandsAvailable && (
         <button
           type="button"
@@ -131,7 +129,7 @@ export function SpaceAgentsRow({
           disabled={commandsDisabled}
           aria-label={translate("composer.controls.agent")}
           aria-haspopup="dialog"
-          className="-mr-1 flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-md bg-muted px-2.5 text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
+          className="-mr-3 flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
         >
           <Terminal className="size-4" />
         </button>
