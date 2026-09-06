@@ -50,8 +50,9 @@ export function KeyRail({ onSend, unsupportedKeys, directActive, onOpenPad, padO
   const keys = directActive ? [...RAIL_KEYS, ...DIRECT_KEYS] : RAIL_KEYS;
 
   // The pad tab, built once and slotted on the configured edge — the agents row's /Agents pin
-  // twin. The tab floats 6px off the glass (`-ml-1.5`): flush looked pasted-on against the
-  // bezel. Bleed, round cap and glyph padding trade sides together with the side.
+  // twin. Filled flush to the glass (`-ml-3` bleeds the footer's padding): a gap read as a
+  // detached pill and broke the docked-tab shape. Bleed, round cap and glyph padding trade
+  // sides together with the side.
   const pad = (
     <Button
       type="button"
@@ -64,8 +65,8 @@ export function KeyRail({ onSend, unsupportedKeys, directActive, onOpenPad, padO
       aria-controls="dock-keys"
       className={
         side === "left"
-          ? "-ml-1.5 h-8 shrink-0 touch-manipulation rounded-r-full rounded-l-none bg-muted pl-3 pr-2.5 text-muted-foreground select-none"
-          : "-mr-1.5 h-8 shrink-0 touch-manipulation rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
+          ? "-ml-3 h-8 shrink-0 touch-manipulation rounded-r-full rounded-l-none bg-muted pl-3 pr-2.5 text-muted-foreground select-none"
+          : "-mr-3 h-8 shrink-0 touch-manipulation rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
       }
     >
       <Keyboard className="size-4" />
@@ -75,7 +76,7 @@ export function KeyRail({ onSend, unsupportedKeys, directActive, onOpenPad, padO
   return (
     <div
       data-slot="key-rail"
-      className={side === "left" ? "-ml-1.5 mb-2 flex items-center gap-1.5" : "-mr-1.5 mb-2 flex items-center gap-1.5"}
+      className={side === "left" ? "-ml-3 mb-2 flex items-center gap-1.5" : "-mr-3 mb-2 flex items-center gap-1.5"}
     >
       {side === "left" && pad}
       <div className="flex flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain [mask-image:linear-gradient(to_right,transparent,black_1.5rem,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

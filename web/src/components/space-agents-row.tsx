@@ -64,9 +64,9 @@ export function SpaceAgentsRow({
   // never preventDefaults, so the row's horizontal scroll and every chip tap pass through.
   const swipe = useSwipeUp(onOpenSwitcher);
   // The /Agents pin, built once and slotted left or right below: the rail's pad tab twin —
-  // same box, same edge tab — so the two glyphs share one column down both rows. The tab
-  // floats 6px off the glass: flush read as pasted-on against the bezel. Rendered only when
-  // something is pickable — the palette's own gate — and dead while the device may not write.
+  // same box, same edge tab — so the two glyphs share one column down both rows. Filled
+  // flush to the glass: a gap broke the docked-tab shape. Rendered only when something is
+  // pickable — the palette's own gate — and dead while the device may not write.
   const pin = commandsAvailable ? (
     <button
       type="button"
@@ -76,8 +76,8 @@ export function SpaceAgentsRow({
       aria-haspopup="dialog"
       className={
         side === "left"
-          ? "-ml-1.5 flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-r-full rounded-l-none bg-muted pl-3 pr-2.5 text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
-          : "-mr-1.5 flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
+          ? "-ml-3 flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-r-full rounded-l-none bg-muted pl-3 pr-2.5 text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
+          : "-mr-3 flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
       }
     >
       <Terminal className="size-4" />
