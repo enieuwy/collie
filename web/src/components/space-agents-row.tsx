@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { ChevronUp, Terminal } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { useLocale } from "@/hooks/use-locale";
 import { useLongPress } from "@/hooks/use-long-press";
 import { usePinSide } from "@/hooks/use-pin-side";
@@ -62,26 +63,27 @@ export function SpaceAgentsRow({
   // Dragging UP anywhere on the row opens the quick switcher — the same sheet as the pill,
   // for the thumb that starts on a chip rather than the handle. Touch-only and read-only: it
   // never preventDefaults, so the row's horizontal scroll and every chip tap pass through.
-  const swipe = useSwipeUp(onOpenSwitcher);
   // The /Agents pin, built once and slotted left or right below: the rail's pad tab twin —
-  // same box, same edge tab — so the two glyphs share one column down both rows. Filled
-  // flush to the glass: a gap broke the docked-tab shape. Rendered only when something is
-  // pickable — the palette's own gate — and dead while the device may not write.
+  // the SAME shadcn Button with the mirrored geometry, not a lookalike, so the two cannot
+  // drift apart again. Filled flush to the glass. Rendered only when something is pickable
+  // — the palette's own gate — and dead while the device may not write.
   const pin = commandsAvailable ? (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       onClick={onOpenCommands}
       disabled={commandsDisabled}
       aria-label={translate("composer.controls.agent")}
       aria-haspopup="dialog"
       className={
         side === "left"
-          ? "-ml-3 flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-r-full rounded-l-none bg-muted pl-3 pr-2.5 text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
-          : "-mr-3 flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
+          ? "-ml-3 h-8 shrink-0 touch-manipulation rounded-r-full rounded-l-none bg-muted pl-3 pr-2.5 text-muted-foreground select-none"
+          : "-mr-3 h-8 shrink-0 touch-manipulation rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
       }
     >
       <Terminal className="size-4" />
-    </button>
+    </Button>
   ) : null;
 
   return (
