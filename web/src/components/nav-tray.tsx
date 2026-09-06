@@ -69,7 +69,16 @@ const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 // its orchestrator). Without buttons for them, a phone-only user has no route to any such keybind.
 const FN_KEYS = ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"];
 
-// Two views behind a segmented toggle: the keys pad (arrows/Esc, Tab/Space/Enter, modifiers, Ctrl
+// Symbol keys, three full 8-grid rows. Herdr types any literal one-character string
+// (HERDR_API.md), so these ride the ordinary navBtn path - no grammar work, and the
+// multiplexer refused-key greying applies to them like every other button.
+const SYMBOLS = [
+  "|", "/", "~", "-", "=", ":", ";", "!",
+  "<", ">", "(", ")", "?", "@", "*", "%",
+  "{", "}", "[", "]", "$", "^", "_", ".",
+];
+
+// Two views behind a segmented toggle: the keys pad (an 8-column grid of every sendable key, plus the collapsible Ctrl
 // presets) and a phone-dialer digit grid. Digits were a cramped nine-across sliver row; on their own
 // tab they get large, thumb-sized targets. The tab is component state only (resets to "keys" each
 // open — the dock unmounts the tray when closed), while the armed modifier, the key queue, and the
@@ -86,7 +95,6 @@ export function NavTray({
   useLocale();
   const [tab, setTab] = useState<Tab>("keys");
   const [ctrlOpen, setCtrlOpen] = useState(false);
-  const [fkeysOpen, setFkeysOpen] = useState(false);
   const { queue, mods, activeMods, composing, arm, press, pushBase, removeAt, clear, take } =
     useKeyQueue();
   const { pending, confirm, reset } = usePendingConfirm(); // danger ctrl two-tap (immediate path only)
@@ -151,7 +159,8 @@ export function NavTray({
   // `repeatable` opts a button into hold-to-repeat. While held, the button shows a live "×N" count
   // instead of running the per-press echo — echo.run per repeat tick would restart the ✓ timer ~11
   // times a second and strobe, the same reason sibling dimming is banned on this pad.
-  const navBtn = (content: ReactNode, keys: string[], aria?: string, repeatable = false) => {
+  // `span` covers more grid columns (the wide Space is custom; the F9-F12 pairs use this).
+  const navBtn = (content: ReactNode, keys: string[], aria?: string, repeatable = false, span = "") => {
     const id = keys.join(" ");
     const phase = echo.phaseOf(id);
     const held = repeatable && repeat.holding === keys[0];
@@ -171,7 +180,7 @@ export function NavTray({
         aria-label={aria}
         // touch-action/select-none: without them a held button on iOS starts a text selection and
         // Android may treat the hold as a scroll gesture, both of which cancel the pointer stream.
-        className="h-10 touch-manipulation select-none px-0 text-sm font-medium"
+        className={`h-9 touch-manipulation px-0 text-xs font-medium select-none ${span}`}
       >
         {held ? (
           <span className="mx-auto flex items-center gap-1">
@@ -190,7 +199,7 @@ export function NavTray({
   // A modifier button reads its own three-state mode from `mods`: outline when off, filled (default)
   // when armed — once OR locked — with a small Lock glyph beside the label to distinguish locked from
   // one-shot. Tapping cycles off → once → locked → off.
-  const modBtn = (m: Modifier, label: ReactNode) => {
+  const modBtn = (m: Modifier, label: ReactNode, aria: string) => {
     const mode = mods[m];
     return (
       <Button
@@ -200,7 +209,8 @@ export function NavTray({
         disabled={disabled}
         onClick={() => arm(m)}
         aria-pressed={mode !== "off"}
-        className="h-10 px-0 text-sm font-medium"
+        aria-label={aria}
+        className="h-9 px-0 text-xs font-medium"
       >
         {mode === "locked" && <Lock className="size-3" />}
         {label}
@@ -249,44 +259,41 @@ export function NavTray({
 
       {tab === "keys" ? (
         <>
-          {/* Same physical-keyboard geometry as the composer's inline quick keys, for muscle memory:
-              Esc top-left, Tab directly below it, arrows as an inverted-T on the right. The Esc/Up
-              gap holds a quick Ctrl+C — the one interrupt chord worth a single tap, without opening
-              Presets (which still lists it alongside the other Ctrl chords for discoverability).
-              It carries the preset's own spelling, "Ctrl C" — the same chord must not read two ways
-              in one drawer, and tmux notation ("C-c") is the spelling this codebase keeps out of
-              sight precisely because it is not what Herdr accepts either. */}
-          <div className="grid grid-cols-4 gap-1.5">
+          {/* Termius-dense 8-column grid: every sendable key one tap away, no nested sections
+              except Presets (whose rows are the operator's own and vary in count).
+              Row 1: Esc, Tab, the three arm/lock modifiers, quick Ctrl+C, Backspace, Enter.
+              Row 2: the arrows as one inline row (not the old inverted-T — the T cost two rows
+              for four keys; hold-to-repeat still applies) beside a four-wide Space.
+              Rows 3-5: the symbol set, three full rows. Row 6-7: F1-F12, always visible now.
+              Deliberately NOT here: Termius's Home/PgUp/PgDn/End/Del/Ins block — Herdr answers
+              every one of those with invalid_key (HERDR_API.md), so buttons for them would be
+              dead on arrival rather than greyed on some multiplexer. */}
+          <div className="grid grid-cols-8 gap-1">
             {navBtn("Esc", ["Escape"])}
-            {navBtn(keyLabel("ctrl+c"), ["ctrl+c"], "Ctrl+C")}
-            {navBtn(<ArrowUp className="size-4" />, ["Up"], "Up", true)}
-            {navBtn("⏎ Enter", ["Enter"])}
             {navBtn("Tab", ["Tab"])}
+            {modBtn("shift", "\u21e7", "Shift")}
+            {modBtn("ctrl", "\u2303", "Ctrl")}
+            {modBtn("alt", "Alt", "Alt")}
+            {navBtn(keyLabel("ctrl+c"), ["ctrl+c"], "Ctrl+C")}
+            {navBtn("\u232b", ["Backspace"], "Backspace")}
+            {navBtn("\u23ce", ["Enter"], "Enter")}
             {navBtn(<ArrowLeft className="size-4" />, ["Left"], "Left", true)}
+            {navBtn(<ArrowUp className="size-4" />, ["Up"], "Up", true)}
             {navBtn(<ArrowDown className="size-4" />, ["Down"], "Down", true)}
             {navBtn(<ArrowRight className="size-4" />, ["Right"], "Right", true)}
-          </div>
-
-          {/* Space — full-width, spacebar-style, on its own row */}
-          <Button
-            type="button"
-            variant={echo.phaseOf("Space") === "idle" ? "outline" : "default"}
-            size="sm"
-            disabled={disabled || !keysSendable(["Space"], unsupportedKeys)}
-            onClick={() => fire(["Space"], "Space")}
-            className="h-10 w-full text-sm font-medium"
-          >
-            {echo.phaseOf("Space") === "done" ? <Check className="size-4" /> : "Space"}
-          </Button>
-
-          {/* Modifiers (checkboxes that cycle off → once → locked → off): arm any subset and the
-              next key composes as their combined chord. Locked (Lock glyph) stays armed across
-              presses and Sends. Same pressed styling as everything else (default = armed, outline =
-              idle). Display order Shift · Ctrl · Alt; compose order is canonical regardless of taps. */}
-          <div className="grid grid-cols-3 gap-1.5">
-            {modBtn("shift", "⇧ Shift")}
-            {modBtn("ctrl", "⌃ Ctrl")}
-            {modBtn("alt", "Alt")}
+            <Button
+              type="button"
+              variant={echo.phaseOf("Space") === "idle" ? "outline" : "default"}
+              size="sm"
+              disabled={disabled || !keysSendable(["Space"], unsupportedKeys)}
+              onClick={() => fire(["Space"], "Space")}
+              className="col-span-4 h-9 text-xs font-medium"
+            >
+              {echo.phaseOf("Space") === "done" ? <Check className="size-4" /> : "Space"}
+            </Button>
+            {SYMBOLS.map((sym) => navBtn(sym, [sym]))}
+            {FN_KEYS.slice(0, 8).map((k) => navBtn(k, [k]))}
+            {FN_KEYS.slice(8).map((k) => navBtn(k, [k], undefined, false, "col-span-2"))}
           </div>
 
           {/* Presets (collapsed by default; expanding keeps everything inline, never covering the
@@ -308,7 +315,7 @@ export function NavTray({
                 {presets.map((item) => {
                   const isPending = pending === item.label;
                   const phase = echo.phaseOf(item.label);
-                  // The armed two-tap confirm outranks the echo — it's the thing you must read.
+                  // The armed two-tap confirm outranks the echo — it is the thing you must read.
                   const variant = isPending ? "destructive" : phase === "idle" ? "outline" : "default";
                   return (
                     <Button
@@ -334,23 +341,6 @@ export function NavTray({
                   );
                 })}
               </div>
-            )}
-          </div>
-          {/* Function keys (#119) — same collapsible shape as Presets: collapsed by default so the
-              tray doesn't grow, expanding to a 4×3 grid. They ride the ordinary navBtn path, so the
-              press echo, key-queue staging, and chords with armed modifiers (ctrl+F7, …) all come
-              for free — no special-casing. */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setFkeysOpen((o) => !o)}
-              className="flex items-center gap-1 px-1 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
-            >
-              {t("keys.fkeys.label")}
-              <ChevronDown className={cn("size-3 transition-transform", fkeysOpen && "rotate-180")} />
-            </button>
-            {fkeysOpen && (
-              <div className="mt-1 grid grid-cols-4 gap-1.5">{FN_KEYS.map((k) => navBtn(k, [k]))}</div>
             )}
           </div>
         </>

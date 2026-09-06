@@ -1989,7 +1989,7 @@ describe("Composer — a composed key queue is guarded on the way out", () => {
   /** Open Keys and stage one chord, so the queue is genuinely dirty. */
   async function stageAKey(user: ReturnType<typeof userEvent.setup>) {
     await user.click(screen.getByRole("button", { name: "Keys" }));
-    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" }));
+    await user.click(screen.getByRole("button", { name: "Ctrl" }));
     await user.click(dockKey("Tab"));
     expect(screen.getByRole("button", { name: "Remove ⌃Tab" })).toBeInTheDocument();
   }
@@ -2029,7 +2029,7 @@ describe("Composer — a composed key queue is guarded on the way out", () => {
     renderComposer();
 
     await user.click(screen.getByRole("button", { name: "Keys" }));
-    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" })); // armed, but nothing staged
+    await user.click(screen.getByRole("button", { name: "Ctrl" })); // armed, but nothing staged
     await user.click(screen.getByRole("button", { name: "Close Keys" }));
 
     expect(keysDock()).toBeNull();

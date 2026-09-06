@@ -42,7 +42,7 @@ describe("NavTray", () => {
     expect(onSend.mock.calls).toEqual([[["1"]], [["5"]], [["9"]]]);
   });
 
-  it("keys tab: Esc leads row 1, Tab leads row 2 (physical-keyboard geometry)", () => {
+  it("keys tab: Esc opens row 1, arrows run inline on row 2 beside a wide Space", () => {
     render(<NavTray onSend={vi.fn()} />);
 
     const esc = screen.getByRole("button", { name: "Esc" });
@@ -58,18 +58,15 @@ describe("NavTray", () => {
     const isBefore = (a: HTMLElement, b: HTMLElement) =>
       (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 
-    // Esc is the very first key button — top-left of row 1, before ↑ and ⏎ (row 1) and Tab (row 2).
+    // Esc is the very first key button — top-left of row 1, before Tab, ↑ and ⏎ on the same row.
+    expect(isBefore(esc, tab)).toBe(true);
     expect(isBefore(esc, up)).toBe(true);
     expect(isBefore(esc, enter)).toBe(true);
-    expect(isBefore(esc, tab)).toBe(true);
 
-    // Tab begins row 2 — after all of row 1, before ← ↓ → which follow it in the same row.
-    expect(isBefore(enter, tab)).toBe(true);
-    expect(isBefore(tab, left)).toBe(true);
-    expect(isBefore(tab, down)).toBe(true);
-    expect(isBefore(tab, right)).toBe(true);
-
-    // Space sits below the two rows, on its own full-width row.
+    // Row 2 runs the arrows inline — ← ↑ ↓ → in order, then the wide Space closes the row.
+    expect(isBefore(left, up)).toBe(true);
+    expect(isBefore(up, down)).toBe(true);
+    expect(isBefore(down, right)).toBe(true);
     expect(isBefore(right, space)).toBe(true);
   });
 
@@ -153,7 +150,7 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" }));
+    await user.click(screen.getByRole("button", { name: "Ctrl" }));
     await user.click(screen.getByRole("button", { name: "Tab" }));
 
     expect(onSend).not.toHaveBeenCalled();
@@ -169,7 +166,7 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" }));
+    await user.click(screen.getByRole("button", { name: "Ctrl" }));
     const keyInput = screen.getByRole("textbox", { name: "Type a key to combine" });
     fireEvent.change(keyInput, { target: { value: "g" } });
 
@@ -183,7 +180,7 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" }));
+    await user.click(screen.getByRole("button", { name: "Ctrl" }));
     await user.click(screen.getByRole("button", { name: "Down" })); // ctrl+Down (disarms)
     await user.click(screen.getByRole("button", { name: "Down" })); // queue non-empty → bare Down
     await user.click(screen.getByRole("button", { name: /Enter/ })); // bare Enter
@@ -198,7 +195,7 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" }));
+    await user.click(screen.getByRole("button", { name: "Ctrl" }));
     await user.click(screen.getByRole("button", { name: "Tab" }));
     await user.click(screen.getByRole("button", { name: "Down" }));
 
@@ -216,8 +213,8 @@ describe("NavTray", () => {
 
   it("the Alt modifier renders alongside Shift and Ctrl", () => {
     render(<NavTray onSend={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "⇧ Shift" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "⌃ Ctrl" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Shift" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ctrl" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Alt" })).toBeInTheDocument();
   });
 
@@ -254,7 +251,7 @@ describe("NavTray", () => {
     render(<NavTray onSend={onSend} />);
 
     const shiftBtn = screen.getByRole("button", { name: /Shift/ });
-    const ctrlBtn = screen.getByRole("button", { name: "⌃ Ctrl" });
+    const ctrlBtn = screen.getByRole("button", { name: "Ctrl" });
 
     await user.click(ctrlBtn);
     await user.click(shiftBtn);
@@ -279,7 +276,7 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    const ctrlBtn = () => screen.getByRole("button", { name: "⌃ Ctrl" });
+    const ctrlBtn = () => screen.getByRole("button", { name: "Ctrl" });
     await user.click(ctrlBtn()); // once
     await user.click(ctrlBtn()); // locked
     expect(ctrlBtn().querySelector(".lucide-lock")).not.toBeNull();
@@ -304,7 +301,7 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    const ctrlBtn = () => screen.getByRole("button", { name: "⌃ Ctrl" });
+    const ctrlBtn = () => screen.getByRole("button", { name: "Ctrl" });
     await user.click(ctrlBtn()); // once
     await user.click(ctrlBtn()); // locked
     await user.click(screen.getByRole("button", { name: "Tab" })); // stage ctrl+Tab
@@ -353,7 +350,7 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" })); // arm → composing
+    await user.click(screen.getByRole("button", { name: "Ctrl" })); // arm → composing
     await user.click(screen.getByRole("button", { name: "Presets" }));
     await user.click(screen.getByRole("button", { name: "Ctrl D" }));
 
@@ -370,18 +367,26 @@ describe("NavTray", () => {
 
   // ── Function keys (#119): F1–F12 behind their own disclosure, same fire/stage path as base keys ──
 
-  it("F keys stay behind their disclosure; expanded, F7/F12 fire as bare keys", async () => {
+  it("F keys sit on the grid, no disclosure; F7/F12 fire as bare keys", async () => {
     const user = userEvent.setup();
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    // Collapsed by default — the tray's height is unchanged until you ask for F keys.
-    expect(screen.queryByRole("button", { name: "F7" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "F keys" }));
-
+    // Always visible now — the dense grid has room for all twelve, so the disclosure is gone.
+    expect(screen.queryByRole("button", { name: "F keys" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "F7" }));
     await user.click(screen.getByRole("button", { name: "F12" }));
     expect(onSend.mock.calls).toEqual([[["F7"]], [["F12"]]]);
+  });
+
+  it("symbols and Backspace sit on the grid and fire through the same path", async () => {
+    const user = userEvent.setup();
+    const onSend = vi.fn(async () => true);
+    render(<NavTray onSend={onSend} />);
+
+    await user.click(screen.getByRole("button", { name: "Backspace" }));
+    await user.click(screen.getByRole("button", { name: "|" }));
+    expect(onSend.mock.calls).toEqual([[["Backspace"]], [["|"]]]);
   });
 
   it("an armed modifier composes with an F key — Ctrl + F7 stages ctrl+F7 for review", async () => {
@@ -389,8 +394,7 @@ describe("NavTray", () => {
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" })); // arm → composing
-    await user.click(screen.getByRole("button", { name: "F keys" }));
+    await user.click(screen.getByRole("button", { name: "Ctrl" })); // arm → composing
     await user.click(screen.getByRole("button", { name: "F7" }));
 
     expect(onSend).not.toHaveBeenCalled(); // staged, not fired
@@ -444,7 +448,7 @@ describe("NavTray", () => {
     const onSend = vi.fn(async () => true);
     render(<NavTray onSend={onSend} />);
 
-    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" })); // arm → compose mode
+    await user.click(screen.getByRole("button", { name: "Ctrl" })); // arm → compose mode
     await user.click(screen.getByRole("button", { name: "Tab" }));
 
     expect(onSend).not.toHaveBeenCalled();
@@ -594,7 +598,7 @@ describe("NavTray — hold to repeat", () => {
     const onSend = vi.fn(async () => true);
     render(<NavTray onSend={onSend} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "⌃ Ctrl" })); // arm → compose mode
+    fireEvent.click(screen.getByRole("button", { name: "Ctrl" })); // arm → compose mode
     const down = screen.getByRole("button", { name: /Down/ });
     fireEvent.pointerDown(down);
     await vi.advanceTimersByTimeAsync(HOLD_DELAY + REPEAT * 8);
@@ -690,7 +694,7 @@ describe("NavTray — operator preset rows", () => {
     render(<NavTray onSend={onSend} presets={[{ label: "Quit", keys: ["ctrl+d"], danger: true }]} />);
     await openPresets(user);
 
-    await user.click(screen.getByRole("button", { name: "⌃ Ctrl" }));
+    await user.click(screen.getByRole("button", { name: "Ctrl" }));
     await user.click(screen.getByRole("button", { name: "Quit" }));
     expect(screen.queryByRole("button", { name: "Confirm?" })).toBeNull();
     expect(onSend).not.toHaveBeenCalled();
