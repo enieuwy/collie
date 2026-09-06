@@ -71,12 +71,11 @@ export function SpaceAgentsRow({
         aria-label={translate("chat.switcher.aria")}
         aria-haspopup="dialog"
         // Tapered, not capped: a hexagon clip pinches both ends to soft points, so the
-        // handle reads as a direction (up) rather than a button among buttons. The clip
-        // eats borders, so there is none — the solid fill carries the edge. 16px tall,
-        // centred on the border: 8px over the statusline, 8px in the lane below it.
-        className="absolute -top-2 left-1/2 z-10 flex h-4 w-12 -translate-x-1/2 touch-manipulation items-center justify-center bg-muted text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 [clip-path:polygon(0%_50%,18%_0%,82%_0%,100%_50%,82%_100%,18%_100%)]"
+        // eats borders, so there is none — the solid fill carries the edge. 12px tall,
+        // centred on the border: 6px over the statusline, 6px in the lane below it.
+        className="absolute -top-1.5 left-1/2 z-10 flex h-3 w-14 -translate-x-1/2 touch-manipulation items-center justify-center bg-muted text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 [clip-path:polygon(0%_50%,18%_0%,82%_0%,100%_50%,82%_100%,18%_100%)]"
       >
-        <ChevronUp className="size-3" />
+        <ChevronUp className="size-2.5" />
       </button>
       <div
         ref={scrollRef}
