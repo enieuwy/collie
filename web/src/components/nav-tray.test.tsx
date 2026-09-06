@@ -26,20 +26,17 @@ describe("NavTray", () => {
     ]);
   });
 
-  it("digits live on the 123 tab (hidden on Keys) and fire as ['1']..['9']", async () => {
+  it("digits sit on the grid (no 123 tab) and fire as ['1']..['9','0']", async () => {
     const user = userEvent.setup();
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
-    // Default tab is "Keys" — the digit pad isn't mounted yet.
-    expect(screen.queryByRole("button", { name: "1" })).toBeNull();
-
-    await user.click(screen.getByRole("button", { name: "123" }));
-
-    for (const d of ["1", "5", "9"]) {
+    // No toggle anymore — digits are rows of the same grid, 9 and 0 wide.
+    expect(screen.queryByRole("button", { name: "123" })).toBeNull();
+    for (const d of ["1", "5", "9", "0"]) {
       await user.click(screen.getByRole("button", { name: d }));
     }
-    expect(onSend.mock.calls).toEqual([[["1"]], [["5"]], [["9"]]]);
+    expect(onSend.mock.calls).toEqual([[["1"]], [["5"]], [["9"]], [["0"]]]);
   });
 
   it("keys tab: Esc opens row 1, arrows run inline on row 2 beside a wide Space", () => {
@@ -128,17 +125,15 @@ describe("NavTray", () => {
     expect(onSend).toHaveBeenLastCalledWith(["Enter"]);
   });
 
-  it("a sticky ⇧ armed on the Keys tab stages a shifted digit tapped on the 123 tab (queue survives the switch)", async () => {
+  it("a sticky ⇧ stages a shifted digit tapped on the same grid", async () => {
     const user = userEvent.setup();
     const onSend = vi.fn();
     render(<NavTray onSend={onSend} />);
 
     await user.click(screen.getByRole("button", { name: /Shift/ }));
-    await user.click(screen.getByRole("button", { name: "123" }));
     await user.click(screen.getByRole("button", { name: "7" }));
 
     expect(onSend).not.toHaveBeenCalled();
-    // The strip lives above both tabs, so the staged chip is visible on the digit pad.
     expect(screen.getByRole("button", { name: "Remove ⇧7" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Send" }));
@@ -379,7 +374,25 @@ describe("NavTray", () => {
     expect(onSend.mock.calls).toEqual([[["F7"]], [["F12"]]]);
   });
 
+  it("quick combos: safe chords fire on one tap, ^D keeps its danger two-tap", async () => {
+    const user = userEvent.setup();
+    const onSend = vi.fn(async () => true);
+    render(<NavTray onSend={onSend} />);
+
+    // The agent-CLI combo row: safe chords fire on one tap ...
+    await user.click(screen.getByRole("button", { name: "Ctrl+U" }));
+    expect(onSend).toHaveBeenCalledExactlyOnceWith(["ctrl+u"]);
+
+    // ... while ^D keeps its danger two-tap (at an empty prompt it exits the agent).
+    await user.click(screen.getByRole("button", { name: "Ctrl+D" }));
+    expect(onSend).toHaveBeenCalledTimes(1); // first tap arms the confirm, sends nothing
+    await user.click(screen.getByRole("button", { name: "Ctrl+D" }));
+    expect(onSend).toHaveBeenCalledTimes(2);
+    expect(onSend.mock.calls[1]).toEqual([["ctrl+d"]]);
+  });
+
   it("symbols and Backspace sit on the grid and fire through the same path", async () => {
+
     const user = userEvent.setup();
     const onSend = vi.fn(async () => true);
     render(<NavTray onSend={onSend} />);

@@ -62,7 +62,7 @@ interface NavTrayProps {
 /** Stable default so an omitted prop never re-renders the pad. */
 const NO_REFUSED_KEYS: readonly string[] = [];
 
-const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
 // F1–F12 — Herdr's send_keys grammar accepts them bare (HERDR_API.md), and harnesses bind them to
 // real actions (tmux windows, CLI hotkeys, agent-extension views like pi's CE Workflow: F7 opens
@@ -72,18 +72,35 @@ const FN_KEYS = ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F
 // Symbol keys, three full 8-grid rows. Herdr types any literal one-character string
 // (HERDR_API.md), so these ride the ordinary navBtn path - no grammar work, and the
 // multiplexer refused-key greying applies to them like every other button.
+
+// Quick combos: the chords agent CLIs actually run on - interrupt-adjacent ^D, line kill ^U,
+// history search ^R, clear ^L, and the readline word/line quartet ^W ^A ^E ^K. The same chords
+// also ship in Presets (same spelling, the ^C precedent - one chord never reads two ways here);
+// the grid copies are the one-tap path, the Presets rows the discoverable list. ^D keeps its
+// danger two-tap through pressCtrl, matching its Presets classification: at an empty prompt it
+// exits the agent. ^Z stays Presets-only - suspending the agent is never a quick-tap want.
+const QUICK_COMBOS: readonly { chord: string; danger?: boolean }[] = [
+  { chord: "ctrl+d", danger: true },
+  { chord: "ctrl+u" },
+  { chord: "ctrl+r" },
+  { chord: "ctrl+l" },
+  { chord: "ctrl+w" },
+  { chord: "ctrl+a" },
+  { chord: "ctrl+e" },
+  { chord: "ctrl+k" },
+];
+
 const SYMBOLS = [
   "|", "/", "~", "-", "=", ":", ";", "!",
   "<", ">", "(", ")", "?", "@", "*", "%",
   "{", "}", "[", "]", "$", "^", "_", ".",
 ];
 
-// Two views behind a segmented toggle: the keys pad (an 8-column grid of every sendable key, plus the collapsible Ctrl
-// presets) and a phone-dialer digit grid. Digits were a cramped nine-across sliver row; on their own
-// tab they get large, thumb-sized targets. The tab is component state only (resets to "keys" each
-// open — the dock unmounts the tray when closed), while the armed modifier, the key queue, and the
-// Ctrl-expand persist across the toggle so a composed sequence survives switching to the digit pad.
-type Tab = "keys" | "digits";
+// One pad, no tabs: an 8-column grid of every sendable key (plus the collapsible Ctrl
+// presets, whose rows are the operator's own and vary in count). Digits used to hide behind a 123
+// toggle; on the dense grid they are rows like everything else, so the toggle and its header row
+// are gone. The armed modifier, the key queue, and the Ctrl-expand live above the grid and are
+// unaffected.
 
 export function NavTray({
   onSend,
@@ -93,7 +110,6 @@ export function NavTray({
   unsupportedKeys = NO_REFUSED_KEYS,
 }: NavTrayProps) {
   useLocale();
-  const [tab, setTab] = useState<Tab>("keys");
   const [ctrlOpen, setCtrlOpen] = useState(false);
   const { queue, mods, activeMods, composing, arm, press, pushBase, removeAt, clear, take } =
     useKeyQueue();
@@ -197,7 +213,27 @@ export function NavTray({
     );
   };
 
-  // A modifier button reads its own three-state mode from `mods`: outline when off, filled (default)
+  // A digit tile: the old 123 dialer shrunk to grid rows. Same fire() path, same echo, same
+  // borderless tile — only the typeface stays mono.
+  const digitBtn = (d: string, span = "") => {
+    const phase = echo.phaseOf(d);
+    const idle = phase === "idle";
+    return (
+      <Button
+        key={d}
+        type="button"
+        variant={idle ? "ghost" : "default"}
+        size="sm"
+        disabled={disabled}
+        onClick={() => fire([d], d)}
+        className={idle ? `h-9 bg-muted font-mono text-sm ${span}` : `h-9 font-mono text-sm ${span}`}
+      >
+        {phase === "done" ? <Check className="size-4" /> : d}
+      </Button>
+    );
+  };
+
+  // A modifier button reads its own three-state mode from `mods`: borderless tile when off, filled (default)
   // when armed — once OR locked — with a small Lock glyph beside the label to distinguish locked from
   // one-shot. Tapping cycles off → once → locked → off.
   const modBtn = (m: Modifier, label: ReactNode, aria: string) => {
@@ -219,6 +255,33 @@ export function NavTray({
     );
   };
 
+  // A quick-combo button: the Presets renderer shrunk to grid size. Same spelling as its
+  // Presets twin, same danger two-tap (^D), same borderless tile at rest.
+  const comboBtn = (c: { chord: string; danger?: boolean }) => {
+    const label = keyLabel(c.chord);
+    const live = pending === label || echo.phaseOf(label) !== "idle";
+    return (
+      <Button
+        key={c.chord}
+        type="button"
+        variant={pending === label ? "destructive" : live ? "default" : "ghost"}
+        size="sm"
+        disabled={disabled || !keysSendable([c.chord], unsupportedKeys)}
+        onClick={() => pressCtrl({ label, keys: [c.chord], danger: c.danger })}
+        aria-label={"Ctrl+" + c.chord.slice(5).toUpperCase()}
+        className={live ? "h-9 px-0 text-xs font-medium" : "h-9 bg-muted px-0 text-xs font-medium"}
+      >
+        {pending === label ? (
+          t("keys.confirm.label")
+        ) : echo.phaseOf(label) === "done" ? (
+          <Check className="size-4" />
+        ) : (
+          label
+        )}
+      </Button>
+    );
+  };
+
   return (
     <div className="space-y-2 border-t border-rule bg-muted/30 px-3 py-2.5">
       {/* Staging strip — visible only while composing (a modifier armed or keys queued). Same on
@@ -233,39 +296,14 @@ export function NavTray({
         disabled={disabled}
       />
 
-      {/* Segmented toggle: the keys pad vs. the phone-dialer digit grid. Same pressed language as the
-          composer's view toggles (secondary = active, ghost = inactive). */}
-      <div className="grid grid-cols-2 gap-1 rounded-lg bg-background/60 p-1">
-        <Button
-          type="button"
-          variant={tab === "keys" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setTab("keys")}
-          aria-pressed={tab === "keys"}
-          className="h-8 text-sm font-medium"
-        >
-          {t("keys.tab.keys")}
-        </Button>
-        <Button
-          type="button"
-          variant={tab === "digits" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setTab("digits")}
-          aria-pressed={tab === "digits"}
-          className="h-8 font-mono text-sm"
-        >
-          123
-        </Button>
-      </div>
-
-      {tab === "keys" ? (
-        <>
+      <>
           {/* Termius-dense 8-column grid: every sendable key one tap away, no nested sections
               except Presets (whose rows are the operator's own and vary in count).
               Row 1: Esc, Tab, the three arm/lock modifiers, quick Ctrl+C, Backspace, Enter.
               Row 2: the arrows as one inline row (not the old inverted-T — the T cost two rows
               for four keys; hold-to-repeat still applies) beside a four-wide Space.
               Rows 3-5: the symbol set, three full rows. Row 6-7: F1-F12, always visible now.
+              Row 8: quick agent-CLI combos (^D keeps its danger two-tap). Rows 9-10: digits.
               Deliberately NOT here: Termius's Home/PgUp/PgDn/End/Del/Ins block — Herdr answers
               every one of those with invalid_key (HERDR_API.md), so buttons for them would be
               dead on arrival rather than greyed on some multiplexer. */}
@@ -295,6 +333,10 @@ export function NavTray({
             {SYMBOLS.map((sym) => navBtn(sym, [sym]))}
             {FN_KEYS.slice(0, 8).map((k) => navBtn(k, [k]))}
             {FN_KEYS.slice(8).map((k) => navBtn(k, [k], undefined, false, "col-span-2"))}
+            {QUICK_COMBOS.map(comboBtn)}
+            {/* Digits close the grid: 1-8 full row, 9 and 0 wide — menu-picking keeps big targets. */}
+            {DIGITS.slice(0, 8).map((d) => digitBtn(d))}
+            {DIGITS.slice(8).map((d) => digitBtn(d, "col-span-4"))}
           </div>
 
           {/* Presets (collapsed by default; expanding keeps everything inline, never covering the
@@ -345,29 +387,6 @@ export function NavTray({
             )}
           </div>
         </>
-      ) : (
-        /* Pick a numbered option — a phone-dialer 3×3 grid of large, thumb-sized digit keys. Same
-           fire() path as everything else, so an armed modifier / a queue built on the Keys tab still
-           applies here. */
-        <div className="grid grid-cols-3 gap-1.5">
-          {DIGITS.map((d) => {
-            const phase = echo.phaseOf(d);
-            return (
-              <Button
-                key={d}
-                type="button"
-                variant={phase === "idle" ? "outline" : "default"}
-                size="sm"
-                disabled={disabled}
-                onClick={() => fire([d], d)}
-                className="h-12 font-mono text-lg"
-              >
-                {phase === "done" ? <Check className="size-5" /> : d}
-              </Button>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
