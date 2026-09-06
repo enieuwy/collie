@@ -60,7 +60,16 @@ export function SpaceAgentsRow({
     // would cover exactly the title the eye is looking for. In-flow costs 10px of chrome;
     // the statusline lends the top half its bottom-centre 48px, the emptiest patch of that
     // strip.
-    <div data-slot="space-agents" className="relative px-3 pt-2.5" {...swipe}>
+    // `touch-pan-x`: vertical drags belong to the swipe-up, not the browser. Without it a
+    // swipe-up starts a viewport rubber-band (and a pull-to-refresh where one exists) while
+    // the gesture also fires — the whole page bounces under the thumb. pan-x keeps the
+    // chips' horizontal scroll and hands everything vertical to the handlers, no
+    // preventDefault needed. `overscroll-y-none` stops the chain below from joining in.
+    <div
+      data-slot="space-agents"
+      className="relative touch-pan-x overscroll-y-none px-3 pt-2.5"
+      {...swipe}
+    >
       {/* The up-pill: the swipe-up's visible twin. A bare gesture has no affordance — nothing
           says UP opens the picker — so the handle sits mid-screen (an easier target than the
           old edge cravat it replaces) wearing the gesture's own arrow. Same sheet, same
@@ -71,9 +80,13 @@ export function SpaceAgentsRow({
         aria-label={translate("chat.switcher.aria")}
         aria-haspopup="dialog"
         // Tapered, not capped: a hexagon clip pinches both ends to soft points, so the
-        // eats borders, so there is none — the solid fill carries the edge. 12px tall,
-        // centred on the border: 6px over the statusline, 6px in the lane below it.
+        // handle reads as a direction (up) rather than a button among buttons. A real
+        // border cannot survive the clip (it is cut where the polygon leaves the box), so
+        // the edge is a 1px drop-shadow in the rule colour instead — filters apply after
+        // the clip and follow the tapered silhouette. 12px tall, centred on the border:
+        // 6px over the statusline, 6px in the lane below it.
         className="absolute -top-1.5 left-1/2 z-10 flex h-3 w-14 -translate-x-1/2 touch-manipulation items-center justify-center bg-muted text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 [clip-path:polygon(0%_50%,18%_0%,82%_0%,100%_50%,82%_100%,18%_100%)]"
+        style={{ filter: "drop-shadow(0 0 1px var(--color-rule))" }}
       >
         <ChevronUp className="size-2.5" />
       </button>
