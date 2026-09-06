@@ -46,6 +46,8 @@ import { NoEchoNotice } from "@/components/no-echo-notice";
 export interface ComposerHandle {
   /** Focus the input and put the caret at the end — used by the mirror-tap-to-focus in AgentChat. */
   focusInput: () => void;
+  /** Open the slash-command palette — the agents row's /Agents button, via AgentChat's ref. */
+  openCommands: () => void;
 }
 
 interface ComposerProps {
@@ -108,9 +110,10 @@ interface ComposerProps {
 
 // The composer cluster at the bottom of the pane view — everything a phone keyboard can't do on its
 // own: the fixed key rail plus an inline key tray (via `pane.send_keys`), image upload, and the
-// reply Send (with a destructive-command two-tap guard). The Quick/Display docks and the
-// slash-command palette still render below but have no entry since the Controls row went away —
-// restoring an entry re-arms them, deleting the blocks finishes the job. Its state (draft,
+// reply Send (with a destructive-command two-tap guard). The Quick/Display docks still render
+// below but have no entry since the Controls row went away — restoring an entry re-arms them,
+// deleting the blocks finishes the job. The slash-command palette's entry is the agents row's
+// /Agents button (it opens through the ref, `openCommands`). Its state (draft,
 // sending, upload, pending preview, its own Keys sheets) is entirely local; it reaches AgentChat
 // only through `onSent` (to re-follow the tail) and exposes `focusInput` so the mirror tap can
 // bring up the keyboard.
@@ -529,9 +532,18 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   // effectiveStable gates the preview's APPEARANCE (stabilised value); effectiveRaw is the live line
   // its text tracks and that the send()-time pre-clear sweeps.
   const effectiveStable = suppressEcho(terminalDraft);
+  // The agents row's /Agents button opens the palette through the ref above. Assigned during
+  // render like `lockedRef`: the imperative handle is created once, and a bare closure over
+  // `requestDrawer` there would keep the FIRST render's drawer and queue — opening the palette
+  // over an armed Keys queue without its discard confirm.
+  const openCommandsRef = useRef<() => void>(() => {});
+  openCommandsRef.current = () => requestDrawer("cmd");
+  useImperativeHandle(
+    ref,
+    () => ({ focusInput: focusInputImmediately, openCommands: () => openCommandsRef.current() }),
+    [],
+  );
   const effectiveRaw = suppressEcho(rawTerminalDraft);
-
-  useImperativeHandle(ref, () => ({ focusInput: focusInputImmediately }), []);
 
   useEffect(
     () => () => {
@@ -975,9 +987,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             over the mirror, not the input. Whichever of the mutually exclusive drawers is active
             renders here via the shared ComposerDock chrome. Keys mounts the NavTray (unmounts on
             close, so tab/queue reset each open); Quick mounts the two one-tap reply grids; Display
-            mounts the labelled mirror prefs. Only Keys still has an entry (the rail pad) — the rest
-            render for a drawer value nothing sets anymore. Agent stays a covering BottomSheet below
-            (it's a palette, not a pad). */}
+            mounts the labelled mirror prefs. Keys has an entry (the rail pad) and Agent has one
+            (the agents row's /Agents button, through the ref) — Quick and Display render for a
+            drawer value nothing sets anymore. Agent stays a covering BottomSheet below (it's a
+            palette, not a pad). */}
         {drawer === "keys" && (
           <ComposerDock
             id="dock-keys"

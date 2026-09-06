@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ChevronUp } from "lucide-react";
+import { ChevronUp, Slash } from "lucide-react";
 
 import { useLocale } from "@/hooks/use-locale";
 import { useLongPress } from "@/hooks/use-long-press";
@@ -24,6 +24,12 @@ interface SpaceAgentsRowProps {
   onOpenSwitcher: () => void;
   /** A hold on a chip opens that pane's options (rename, close) — the pane pill's old sheet. */
   onHoldPane: (pane: AgentView) => void;
+  /** Opens the slash-command palette through the composer's ref. */
+  onOpenCommands: () => void;
+  /** The palette's own gate: something pickable exists (shipped catalog or operator rows). */
+  commandsAvailable: boolean;
+  /** The write lock, recomputed up in AgentChat — a read-only device gets a dead button. */
+  commandsDisabled: boolean;
 }
 
 export function SpaceAgentsRow({
@@ -32,6 +38,9 @@ export function SpaceAgentsRow({
   onSelect,
   onOpenSwitcher,
   onHoldPane,
+  onOpenCommands,
+  commandsAvailable,
+  commandsDisabled,
 }: SpaceAgentsRowProps) {
   useLocale();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -92,9 +101,12 @@ export function SpaceAgentsRow({
       >
         <ChevronUp className="size-2.5" />
       </button>
+      {/* Chips plus the pinned /Agents door: the scroller takes the free width and fades under
+          the pin, the rail's own arrangement. */}
+      <div className="flex h-7 items-center gap-1.5">
       <div
         ref={scrollRef}
-        className="flex h-7 flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain pr-3 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex h-7 min-w-0 flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain pr-3 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {agents.map((a) => (
           <AgentChip
@@ -106,7 +118,25 @@ export function SpaceAgentsRow({
           />
         ))}
       </div>
-    </div>
+      {/* The /Agents door: the Controls row's slash-command button, back from the dead. Pinned
+          past the scroll fade like the rail's pad button, right-aligned over the Keys pad key
+          below (`-mr-1` matches the rail's own inset). Rendered only when something is pickable
+          — the palette's own gate — and dead while the device may not write. */}
+      {commandsAvailable && (
+        <button
+          type="button"
+          onClick={onOpenCommands}
+          disabled={commandsDisabled}
+          aria-label={translate("composer.controls.agent")}
+          aria-haspopup="dialog"
+          className="-mr-1 flex h-6 shrink-0 touch-manipulation items-center gap-1 rounded-md px-2 text-[13px] font-medium text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
+        >
+          <Slash className="size-3.5" />
+          {translate("composer.controls.agent")}
+        </button>
+      )}
+      </div>
+      </div>
   );
 }
 

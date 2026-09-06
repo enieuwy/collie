@@ -771,6 +771,31 @@ describe("AgentChat — space agents row", () => {
     expect(props.onSelect).not.toHaveBeenCalled();
   });
 
+  it("the /Agents button opens the slash-command palette", async () => {
+    // The Controls row's old door, rebuilt on the agents row: same palette, same gate, opened
+    // through the composer's ref. The title pins WHICH sheet this is — every sheet here is a
+    // dialog, so `dialog` alone would pass for the switcher too.
+    const user = userEvent.setup();
+    renderRow();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Agent" }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Agent commands")).toBeInTheDocument();
+  });
+
+  it("hides /Agents when the pane has nothing pickable", () => {
+    // A shell has no command catalog and the test store holds no operator rows — the palette
+    // would open empty, so the button stays out. The row itself must be up, or the assertion
+    // is vacuous.
+    const shell = fixtureShellPanes[0]!;
+    renderChat({ agent: shell, agents: [shell] });
+
+    expect(document.querySelector('[data-slot="space-agents"]')).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Agent" })).toBeNull();
+  });
+
   it("a swipe up on the row opens the same switcher as the pill", () => {
     renderRow();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
