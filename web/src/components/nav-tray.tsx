@@ -62,8 +62,6 @@ interface NavTrayProps {
 /** Stable default so an omitted prop never re-renders the pad. */
 const NO_REFUSED_KEYS: readonly string[] = [];
 
-const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
-
 // F1–F12 — Herdr's send_keys grammar accepts them bare (HERDR_API.md), and harnesses bind them to
 // real actions (tmux windows, CLI hotkeys, agent-extension views like pi's CE Workflow: F7 opens
 // its orchestrator). Without buttons for them, a phone-only user has no route to any such keybind.
@@ -90,11 +88,11 @@ const QUICK_COMBOS: readonly { chord: string; danger?: boolean }[] = [
   { chord: "ctrl+k" },
 ];
 
-const SYMBOLS = [
-  "|", "/", "~", "-", "=", ":", ";", "!",
-  "<", ">", "(", ")", "?", "@", "*", "%",
-  "{", "}", "[", "]", "$", "^", "_", ".",
-];
+// Symbols split for the two lanes: the numpad owns / * - + ., so they appear nowhere else.
+const SYMBOLS_L = ["|", "~", "=", ":", ";", "!", "<", ">"];
+const SYMBOLS_R = ["(", ")", "$", "_", "{", "}", "[", "]"];
+// The rare tail (? @ % ^) closes the left lane beside nothing else — kept, not loved.
+const SYMBOLS_TAIL = ["?", "@", "%", "^"];
 
 // One pad, no tabs: an 8-column grid of every sendable key (plus the collapsible Ctrl
 // presets, whose rows are the operator's own and vary in count). Digits used to hide behind a 123
@@ -297,46 +295,61 @@ export function NavTray({
       />
 
       <>
-          {/* Termius-dense 8-column grid: every sendable key one tap away, no nested sections
-              except Presets (whose rows are the operator's own and vary in count).
-              Row 1: Esc, Tab, the three arm/lock modifiers, quick Ctrl+C, Backspace, Enter.
-              Row 2: the arrows as one inline row (not the old inverted-T — the T cost two rows
-              for four keys; hold-to-repeat still applies) beside a four-wide Space.
-              Rows 3-5: the symbol set, three full rows. Row 6-7: F1-F12, always visible now.
-              Row 8: quick agent-CLI combos (^D keeps its danger two-tap). Rows 9-10: digits.
-              Deliberately NOT here: Termius's Home/PgUp/PgDn/End/Del/Ins block — Herdr answers
-              every one of those with invalid_key (HERDR_API.md), so buttons for them would be
-              dead on arrival rather than greyed on some multiplexer. */}
-          <div className="grid grid-cols-8 gap-1">
-            {navBtn("Esc", ["Escape"])}
-            {navBtn("Tab", ["Tab"])}
-            {modBtn("shift", "\u21e7", "Shift")}
-            {modBtn("ctrl", "\u2303", "Ctrl")}
-            {modBtn("alt", "Alt", "Alt")}
-            {navBtn(keyLabel("ctrl+c"), ["ctrl+c"], "Ctrl+C")}
-            {navBtn("\u232b", ["Backspace"], "Backspace")}
-            {navBtn("\u23ce", ["Enter"], "Enter")}
-            {navBtn(<ArrowLeft className="size-4" />, ["Left"], "Left", true)}
-            {navBtn(<ArrowUp className="size-4" />, ["Up"], "Up", true)}
-            {navBtn(<ArrowDown className="size-4" />, ["Down"], "Down", true)}
-            {navBtn(<ArrowRight className="size-4" />, ["Right"], "Right", true)}
-            <Button
-              type="button"
-              variant={echo.phaseOf("Space") === "idle" ? "ghost" : "default"}
-              size="sm"
-              disabled={disabled || !keysSendable(["Space"], unsupportedKeys)}
-              onClick={() => fire(["Space"], "Space")}
-              className={echo.phaseOf("Space") === "idle" ? "col-span-4 h-9 bg-muted text-xs font-medium" : "col-span-4 h-9 text-xs font-medium"}
-            >
-              {echo.phaseOf("Space") === "done" ? <Check className="size-4" /> : "Space"}
-            </Button>
-            {SYMBOLS.map((sym) => navBtn(sym, [sym]))}
-            {FN_KEYS.slice(0, 8).map((k) => navBtn(k, [k]))}
-            {FN_KEYS.slice(8).map((k) => navBtn(k, [k], undefined, false, "col-span-2"))}
-            {QUICK_COMBOS.map(comboBtn)}
-            {/* Digits close the grid: 1-8 full row, 9 and 0 wide — menu-picking keeps big targets. */}
-            {DIGITS.slice(0, 8).map((d) => digitBtn(d))}
-            {DIGITS.slice(8).map((d) => digitBtn(d, "col-span-4"))}
+          {/* Two lanes, Termius-style: a 4-column terminal lane and a 4-column numpad lane with
+              a wider gutter between them (outer gap-3 vs inner gap-1). Both lanes run 9 rows, so
+              the pairs stay aligned. Left: control block, inline arrows (the inverted-T cost two
+              rows for four keys; hold-to-repeat still applies), wide Space, symbols, the
+              agent-CLI combos (^D keeps its danger two-tap), the rare-symbol tail. Right: a
+              faithful numpad (7-8-9 top row, 0 wide, operators, dot), symbols, F1-F12 in ONE
+              lane — never spread across. Deliberately NOT here: Termius's Home/PgUp/PgDn/End/
+              Del/Ins block — Herdr answers every one with invalid_key (HERDR_API.md). */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-4 content-start gap-1" data-slot="key-lane-left">
+              {navBtn("Esc", ["Escape"])}
+              {navBtn("Tab", ["Tab"])}
+              {modBtn("shift", "\u21e7", "Shift")}
+              {modBtn("ctrl", "\u2303", "Ctrl")}
+              {modBtn("alt", "Alt", "Alt")}
+              {navBtn(keyLabel("ctrl+c"), ["ctrl+c"], "Ctrl+C")}
+              {navBtn("\u232b", ["Backspace"], "Backspace")}
+              {navBtn("\u23ce", ["Enter"], "Enter")}
+              {navBtn(<ArrowLeft className="size-4" />, ["Left"], "Left", true)}
+              {navBtn(<ArrowUp className="size-4" />, ["Up"], "Up", true)}
+              {navBtn(<ArrowDown className="size-4" />, ["Down"], "Down", true)}
+              {navBtn(<ArrowRight className="size-4" />, ["Right"], "Right", true)}
+              <Button
+                type="button"
+                variant={echo.phaseOf("Space") === "idle" ? "ghost" : "default"}
+                size="sm"
+                disabled={disabled || !keysSendable(["Space"], unsupportedKeys)}
+                onClick={() => fire(["Space"], "Space")}
+                className={echo.phaseOf("Space") === "idle" ? "col-span-4 h-9 bg-muted text-xs font-medium" : "col-span-4 h-9 text-xs font-medium"}
+              >
+                {echo.phaseOf("Space") === "done" ? <Check className="size-4" /> : "Space"}
+              </Button>
+              {SYMBOLS_L.map((sym) => navBtn(sym, [sym]))}
+              {QUICK_COMBOS.map(comboBtn)}
+              {SYMBOLS_TAIL.map((sym) => navBtn(sym, [sym]))}
+            </div>
+            <div className="grid grid-cols-4 content-start gap-1" data-slot="key-lane-right">
+              {digitBtn("7")}
+              {digitBtn("8")}
+              {digitBtn("9")}
+              {navBtn("/", ["/"])}
+              {digitBtn("4")}
+              {digitBtn("5")}
+              {digitBtn("6")}
+              {navBtn("*", ["*"])}
+              {digitBtn("1")}
+              {digitBtn("2")}
+              {digitBtn("3")}
+              {navBtn("-", ["-"])}
+              {digitBtn("0", "col-span-2")}
+              {navBtn(".", ["."])}
+              {navBtn("+", ["+"])}
+              {SYMBOLS_R.map((sym) => navBtn(sym, [sym]))}
+              {FN_KEYS.map((k) => navBtn(k, [k]))}
+            </div>
           </div>
 
           {/* Presets (collapsed by default; expanding keeps everything inline, never covering the
