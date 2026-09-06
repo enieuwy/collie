@@ -129,10 +129,9 @@ export function SpaceAgentsRow({
           disabled={commandsDisabled}
           aria-label={translate("composer.controls.agent")}
           aria-haspopup="dialog"
-          className="-mr-1 flex h-6 shrink-0 touch-manipulation items-center gap-1 rounded-md px-2 text-[13px] font-medium text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
+          className="-mr-1 flex size-6 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
         >
-          <Slash className="size-3.5" />
-          {translate("composer.controls.agent")}
+          <Slash className="size-4" />
         </button>
       )}
       </div>
