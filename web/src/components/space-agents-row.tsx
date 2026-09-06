@@ -1,13 +1,14 @@
 import { useEffect, useRef } from "react";
 import { ChevronUp, Terminal } from "lucide-react";
 
+import { StatusDot } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/hooks/use-locale";
 import { useLongPress } from "@/hooks/use-long-press";
 import { usePinSide } from "@/hooks/use-pin-side";
 import { useSwipeUp } from "@/hooks/use-swipe";
 import { t as translate } from "@/lib/i18n";
-import { paneDisplayName, type AgentView } from "@/lib/types";
+import { paneDisplayName, statusLabel, type AgentView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 // The row that replaced the tab strip, the pane strip and the switcher handle: every agent
@@ -26,6 +27,8 @@ interface SpaceAgentsRowProps {
   onOpenSwitcher: () => void;
   /** A hold on a chip opens that pane's options (rename, close) — the pane pill's old sheet. */
   onHoldPane: (pane: AgentView) => void;
+  /** Connection not live: dots show the last snapshot dimmed, like every other StatusDot. */
+  stale?: boolean;
   /** Opens the slash-command palette through the composer's ref. */
   onOpenCommands: () => void;
   /** The palette's own gate: something pickable exists (shipped catalog or operator rows). */
@@ -40,6 +43,7 @@ export function SpaceAgentsRow({
   onSelect,
   onOpenSwitcher,
   onHoldPane,
+  stale,
   onOpenCommands,
   commandsAvailable,
   commandsDisabled,
@@ -154,6 +158,7 @@ export function SpaceAgentsRow({
             key={a.paneId}
             agent={a}
             current={a.paneId === currentPaneId}
+            stale={stale}
             onSelect={onSelect}
             onHoldPane={onHoldPane}
           />
@@ -172,11 +177,13 @@ export function SpaceAgentsRow({
 function AgentChip({
   agent,
   current,
+  stale,
   onSelect,
   onHoldPane,
 }: {
   agent: AgentView;
   current: boolean;
+  stale?: boolean;
   onSelect: (paneId: string) => void;
   onHoldPane: (pane: AgentView) => void;
 }) {
@@ -191,13 +198,27 @@ function AgentChip({
       className={cn(
         // [-webkit-touch-callout:none] joins the select-none the chip already had: without it
         // iOS Safari's native hold gesture fires pointercancel and kills the timer (ui/chip.tsx).
-        "h-6 max-w-44 shrink-0 truncate rounded-md px-2 text-[13px] font-medium whitespace-nowrap transition-colors select-none active:scale-95 [-webkit-touch-callout:none]",
+        "flex h-6 max-w-44 shrink-0 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium whitespace-nowrap transition-colors select-none active:scale-95 [-webkit-touch-callout:none]",
         current
           ? "bg-primary text-primary-foreground"
           : "text-muted-foreground hover:bg-muted/60",
       )}
     >
-      {paneDisplayName(agent)}
+      {/* The state dot leads the title: this chip carries no status word, so the dot is the
+          only mark of the state in its group and takes the label (StatusDot's own rule —
+          everywhere else the word stands beside it and the dot stays silent). Still, never
+          live: only the watched pane's dots breathe. The hollow resting rings fill with the
+          surface they sit on — primary on the current chip, chrome everywhere else. */}
+      <StatusDot
+        status={agent.status}
+        label={statusLabel(agent.status)}
+        stale={stale}
+        surface={current ? "bg-primary" : "bg-chrome"}
+      />
+      {/* Explicit space: JSX drops the newline between the dot and the title, and without it
+          the accessible name glues shut ("needs youclaude"). */}
+      {" "}
+      <span className="truncate">{paneDisplayName(agent)}</span>
     </button>
   );
 }

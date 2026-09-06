@@ -728,8 +728,8 @@ describe("AgentChat — space agents row", () => {
     expect(row).toBeInTheDocument();
 
     // Operator label, then the agent's own session name, then the agent kind.
-    expect(within(row).getByRole("button", { name: "redesign" })).toBeInTheDocument();
-    expect(within(row).getByRole("button", { name: "claude" })).toHaveAttribute(
+    expect(within(row).getByRole("button", { name: "working redesign" })).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "needs you claude" })).toHaveAttribute(
       "aria-current",
       "true",
     );
@@ -738,11 +738,21 @@ describe("AgentChat — space agents row", () => {
     expect(within(row).queryByRole("button", { name: "codex" })).toBeNull();
   });
 
+  it("leads each chip with its status dot, labelled", () => {
+    // The chip carries no status word, so the dot is the only mark of the state and takes the
+    // label — "needs you" on the blocked claude, "working" on the codex. Still dots, never
+    // live: only the watched pane breathes.
+    renderRow();
+    const row = document.querySelector<HTMLElement>('[data-slot="space-agents"]')!;
+    expect(within(row).getByRole("img", { name: "needs you" })).toBeInTheDocument();
+    expect(within(row).getByRole("img", { name: "working" })).toBeInTheDocument();
+  });
+
   it("tapping another session switches straight to its pane", async () => {
     const user = userEvent.setup();
     const { props } = renderRow();
 
-    await user.click(screen.getByRole("button", { name: "redesign" }));
+    await user.click(screen.getByRole("button", { name: "working redesign" }));
     expect(props.onSelect).toHaveBeenCalledWith("w1:p2");
   });
 
@@ -762,7 +772,7 @@ describe("AgentChat — space agents row", () => {
     const { props } = renderRow();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    fireEvent.contextMenu(screen.getByRole("button", { name: "redesign" }));
+    fireEvent.contextMenu(screen.getByRole("button", { name: "working redesign" }));
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Rename" })).toBeInTheDocument();
@@ -810,14 +820,14 @@ describe("AgentChat — space agents row", () => {
     try {
       renderRow();
       const pin = screen.getByRole("button", { name: "Agent" });
-      const firstChip = screen.getByRole("button", { name: "claude" });
+      const firstChip = screen.getByRole("button", { name: "needs you claude" });
       expect(pin.compareDocumentPosition(firstChip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       cleanup();
 
       store.set("collie:pin-side:v1", JSON.stringify({ side: "right" }));
       renderRow();
       const pinRight = screen.getByRole("button", { name: "Agent" });
-      const lastChip = screen.getByRole("button", { name: "redesign" });
+      const lastChip = screen.getByRole("button", { name: "working redesign" });
       expect(pinRight.compareDocumentPosition(lastChip) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
     } finally {
       vi.unstubAllGlobals();
@@ -950,7 +960,9 @@ describe("AgentChat — shared header: stale-status dimming", () => {
 
     // The word is gone with the composer's strip; the dot carries the accessible name instead
     // (role="img" labelled with the status word), and the stale dim lands on the dot itself.
-    const badge = screen.getByRole("img", { name: "needs you" });
+    // Scoped to the banner: the agents row's chips carry the same labelled dots now, so an
+    // unscoped query matches twice.
+    const badge = within(screen.getByRole("banner")).getByRole("img", { name: "needs you" });
     expect(badge).toHaveClass("opacity-40"); // not live → frozen status dimmed
     act(() => setError(false)); // snapshot recovers → live
     expect(badge).not.toHaveClass("opacity-40"); // undimmed instantly

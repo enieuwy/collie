@@ -1517,6 +1517,7 @@ export function AgentChat({
                     onSelect={switchTo}
                     onOpenSwitcher={() => setDrawer("switcher")}
                     onHoldPane={setHeldPane}
+                    stale={connecting}
                     onOpenCommands={openCommands}
                     commandsAvailable={commandsAvailable}
                     commandsDisabled={commandsLocked}
