@@ -8,6 +8,7 @@ import type { DisplayPrefs } from "@/hooks/use-display-prefs";
 import { usePendingConfirm } from "@/hooks/use-pending-confirm";
 import { useDirectTyping } from "@/hooks/use-direct-typing";
 import { useLocale } from "@/hooks/use-locale";
+import { useSwipeDown } from "@/hooks/use-swipe";
 import { t as translate, tn as translatePlural } from "@/lib/i18n";
 import { setStatus } from "@/lib/status";
 import { stampSend } from "@/lib/poll-intent";
@@ -162,8 +163,16 @@ function ComposerDock({
   onClose: () => void;
   children: ReactNode;
 }) {
+  // Swipe-down to close: the sheets' gesture on in-flow chrome. A downward fling dismisses the
+  // dock, but only while its body sits at the top — a fling that also scrolled stays a scroll
+  // (the BottomSheet's atTop rule, same reason). The close runs through `onClose`, so the Keys
+  // queue's discard confirm survives the gesture exactly as it survives the ✕.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const swipe = useSwipeDown(() => {
+    if ((bodyRef.current?.scrollTop ?? 0) <= 0) onClose();
+  });
   return (
-    <div id={id} className="-mx-3 mb-2 flex flex-col border-t border-border bg-background">
+    <div id={id} className="-mx-3 mb-2 flex flex-col border-t border-border bg-background" {...swipe}>
       <div className="flex items-center justify-between px-3 pt-2">
         <div className="flex min-w-0 items-center gap-2">
           <SectionLabel>{title}</SectionLabel>
@@ -180,7 +189,7 @@ function ComposerDock({
           <X className="size-4" />
         </Button>
       </div>
-      <div className="max-h-[45dvh] min-h-0 overflow-y-auto">{children}</div>
+      <div ref={bodyRef} className="max-h-[45dvh] min-h-0 overflow-y-auto">{children}</div>
     </div>
   );
 }

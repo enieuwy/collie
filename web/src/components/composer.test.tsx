@@ -1949,6 +1949,22 @@ describe("Composer — keys dock (in-flow, not an overlay)", () => {
     expect(keysDock()).toBeNull();
   });
 
+  it("a downward fling on the dock closes it, like the sheets", () => {
+    // The sheets' gesture on in-flow chrome. Fires on displacement, not velocity, so the
+    // timer path needs no covering — use-swipe.test.ts pins the decision logic itself.
+    renderComposer();
+    expect(keysDock()).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Keys" }));
+    const dock = keysDock()!;
+    expect(dock).toBeInTheDocument();
+
+    fireEvent.touchStart(dock, { touches: [{ clientX: 200, clientY: 500 }] });
+    fireEvent.touchEnd(dock, { changedTouches: [{ clientX: 203, clientY: 560 }] });
+
+    expect(keysDock()).toBeNull();
+  });
+
   it("routes a docked key press through pane.send_keys", async () => {
     const user = userEvent.setup();
     let sentKeys: string[] | null = null;
