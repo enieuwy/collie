@@ -82,11 +82,13 @@ export function SpaceAgentsRow({
         // Tapered, not capped: a hexagon clip pinches both ends to soft points, so the
         // handle reads as a direction (up) rather than a button among buttons. A real
         // border cannot survive the clip (it is cut where the polygon leaves the box), so
-        // the edge is a 1px drop-shadow in the rule colour instead — filters apply after
-        // the clip and follow the tapered silhouette. 12px tall, centred on the border:
-        // 6px over the statusline, 6px in the lane below it.
+        // the edge is a doubled 1px silhouette shadow instead — filters apply after the
+        // clip and follow the points. It wears the icon's own colour, not the rule
+        // colour: a rule hairline vanishes on dark chrome, while the icon tone holds on
+        // the terminal above and the chrome below in both themes. 12px tall, centred on
+        // the border: 6px over the statusline, 6px in the lane below it.
         className="absolute -top-1.5 left-1/2 z-10 flex h-3 w-14 -translate-x-1/2 touch-manipulation items-center justify-center bg-muted text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 [clip-path:polygon(0%_50%,18%_0%,82%_0%,100%_50%,82%_100%,18%_100%)]"
-        style={{ filter: "drop-shadow(0 0 1px var(--color-rule))" }}
+        style={{ filter: "drop-shadow(0 0 1px currentColor) drop-shadow(0 0 1px currentColor)" }}
       >
         <ChevronUp className="size-2.5" />
       </button>
