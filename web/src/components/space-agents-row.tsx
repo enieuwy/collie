@@ -80,8 +80,8 @@ export function SpaceAgentsRow({
       aria-haspopup="dialog"
       className={
         side === "left"
-          ? "-ml-3 h-8 shrink-0 touch-manipulation rounded-r-full rounded-l-none bg-muted pl-3 pr-2.5 text-muted-foreground select-none"
-          : "-mr-3 h-8 shrink-0 touch-manipulation rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
+          ? "flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-r-full rounded-l-none bg-muted pl-3 pr-2.5 text-muted-foreground select-none"
+          : "flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
       }
     >
       <Terminal className="size-4" />
@@ -129,8 +129,15 @@ export function SpaceAgentsRow({
       </button>
       {/* Chips plus the pinned /Agents door: the scroller takes the free width and fades under
           the pin, the rail's own arrangement. The pin renders on the configured side (a plain
-          variable, not a mirrored tree — one button, two slots), so tab order follows the eye. */}
-      <div className="flex h-8 items-center gap-1.5">
+          variable, not a mirrored tree — one button, two slots), so tab order follows the eye.
+          The bleed lives on this wrapper, never on the pin: WebKit drops negative margins on
+          flex items, so a pin-side `-ml-3` computes flush in Chromium and parks 12px off in
+          Safari. A block-level wrapper bleeds the same everywhere. */}
+      <div
+        className={
+          side === "left" ? "-ml-3 flex h-8 items-center gap-1.5" : "-mr-3 flex h-8 items-center gap-1.5"
+        }
+      >
       {side === "left" && pin}
       <div
         ref={scrollRef}

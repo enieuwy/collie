@@ -50,9 +50,9 @@ export function KeyRail({ onSend, unsupportedKeys, directActive, onOpenPad, padO
   const keys = directActive ? [...RAIL_KEYS, ...DIRECT_KEYS] : RAIL_KEYS;
 
   // The pad tab, built once and slotted on the configured edge — the agents row's /Agents pin
-  // twin. Filled flush to the glass (`-ml-3` bleeds the footer's padding): a gap read as a
-  // detached pill and broke the docked-tab shape. Bleed, round cap and glyph padding trade
-  // sides together with the side.
+  // twin. The container below carries the bleed; the tab itself carries none: WebKit drops
+  // negative margins on flex items, so the tab's own `-ml-3` parked it 12px off in Safari
+  // while Chromium rendered it flush. Round cap and glyph padding still trade sides.
   const pad = (
     <Button
       type="button"
@@ -65,8 +65,8 @@ export function KeyRail({ onSend, unsupportedKeys, directActive, onOpenPad, padO
       aria-controls="dock-keys"
       className={
         side === "left"
-          ? "-ml-3 h-8 shrink-0 touch-manipulation rounded-r-full rounded-l-none bg-muted pl-3 pr-2.5 text-muted-foreground select-none"
-          : "-mr-3 h-8 shrink-0 touch-manipulation rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
+          ? "h-8 shrink-0 touch-manipulation rounded-r-full rounded-l-none bg-muted pl-3 pr-2.5 text-muted-foreground select-none"
+          : "h-8 shrink-0 touch-manipulation rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
       }
     >
       <Keyboard className="size-4" />
