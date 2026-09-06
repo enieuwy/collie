@@ -63,6 +63,8 @@ export function SpaceAgentsRow({
   // Dragging UP anywhere on the row opens the quick switcher — the same sheet as the pill,
   // for the thumb that starts on a chip rather than the handle. Touch-only and read-only: it
   // never preventDefaults, so the row's horizontal scroll and every chip tap pass through.
+  const swipe = useSwipeUp(onOpenSwitcher);
+
   // The /Agents pin, built once and slotted left or right below: the rail's pad tab twin —
   // the SAME shadcn Button with the mirrored geometry, not a lookalike, so the two cannot
   // drift apart again. Filled flush to the glass. Rendered only when something is pickable
