@@ -151,6 +151,7 @@
         "**/web/src/lib/operator-fonts.ts",
         "**/web/src/hooks/use-display-prefs.ts",
         "**/web/src/hooks/use-dash-prefs.ts",
+        "**/web/src/hooks/use-pin-side.ts",
         "**/web/src/hooks/use-theme.ts",
         "**/web/src/lib/drafts.ts",
         "**/web/src/lib/haptics.ts",

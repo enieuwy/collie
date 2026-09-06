@@ -27,6 +27,12 @@ export const en = {
   "settings.theme.option.light": "Light",
   "settings.theme.option.dark": "Dark",
 
+  // --- settings.pins ---
+  "settings.pins.title": "Side pins",
+  "settings.pins.description": "Which edge the /Agents and Keys tabs dock to.",
+  "settings.pins.option.left": "Left",
+  "settings.pins.option.right": "Right",
+
   // --- settings.haptics ---
   "settings.haptics.title": "Haptics",
   "settings.haptics.description": "A short buzz when you press a key or a quick reply.",

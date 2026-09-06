@@ -18,6 +18,12 @@ export const ko: Dictionary = {
   "settings.theme.option.light": "라이트",
   "settings.theme.option.dark": "다크",
 
+  // --- settings.pins ---
+  "settings.pins.title": "\uc0ac\uc774\ub4dc \ud0ed",
+  "settings.pins.description": "/Agents \ubc0f \ud0a4 \ud0ed\uc744 \uc5b4\ub290 \uac00\uc7a5\uc790\ub9ac\uc5d0 \ub3c4\ud0b9\ud560\uc9c0.",
+  "settings.pins.option.left": "\uc67c\ucabd",
+  "settings.pins.option.right": "\uc624\ub978\ucabd",
+
   // --- settings.haptics ---
   "settings.haptics.title": "햅틱 피드백",
   "settings.haptics.description": "키 입력 또는 빠른 응답 선택 시 진동으로 알립니다.",

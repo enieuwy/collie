@@ -3,6 +3,7 @@ import { ChevronUp, Terminal } from "lucide-react";
 
 import { useLocale } from "@/hooks/use-locale";
 import { useLongPress } from "@/hooks/use-long-press";
+import { usePinSide } from "@/hooks/use-pin-side";
 import { useSwipeUp } from "@/hooks/use-swipe";
 import { t as translate } from "@/lib/i18n";
 import { paneDisplayName, type AgentView } from "@/lib/types";
@@ -43,6 +44,7 @@ export function SpaceAgentsRow({
   commandsDisabled,
 }: SpaceAgentsRowProps) {
   useLocale();
+  const { side } = usePinSide();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Keep the current session on screen: after a switch (the list is stable, so this only runs
@@ -61,6 +63,27 @@ export function SpaceAgentsRow({
   // for the thumb that starts on a chip rather than the handle. Touch-only and read-only: it
   // never preventDefaults, so the row's horizontal scroll and every chip tap pass through.
   const swipe = useSwipeUp(onOpenSwitcher);
+  // The /Agents pin, built once and slotted left or right below: the rail's pad tab twin —
+  // same box, same edge tab — so the two glyphs share one column down both rows. The edge
+  // classes mirror by side: bleed, round cap and glyph padding trade sides together, or the
+  // tab floats one padding off the edge. Rendered only when something is pickable — the
+  // palette's own gate — and dead while the device may not write.
+  const pin = commandsAvailable ? (
+    <button
+      type="button"
+      onClick={onOpenCommands}
+      disabled={commandsDisabled}
+      aria-label={translate("composer.controls.agent")}
+      aria-haspopup="dialog"
+      className={
+        side === "left"
+          ? "-ml-3 flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-r-full rounded-l-none bg-muted pl-3 pr-2.5 text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
+          : "-mr-3 flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
+      }
+    >
+      <Terminal className="size-4" />
+    </button>
+  ) : null;
 
   return (
     // The pill's own lane: 10px of top padding whose upper half the pill vacates — it rides
@@ -102,11 +125,20 @@ export function SpaceAgentsRow({
         <ChevronUp className="size-2.5" />
       </button>
       {/* Chips plus the pinned /Agents door: the scroller takes the free width and fades under
-          the pin, the rail's own arrangement. */}
+          the pin, the rail's own arrangement. The pin renders on the configured side (a plain
+          variable, not a mirrored tree — one button, two slots), so tab order follows the eye. */}
       <div className="flex h-8 items-center gap-1.5">
+      {side === "left" && pin}
       <div
         ref={scrollRef}
-        className="flex h-7 min-w-0 flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain pr-3 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className={cn(
+          "flex h-7 min-w-0 flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          // The fade hides the edge the pin sits on: chips slide under solid chrome, never
+          // behind text.
+          side === "left"
+            ? "pl-3 [mask-image:linear-gradient(to_left,black_calc(100%-1.5rem),transparent)]"
+            : "pr-3 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]",
+        )}
       >
         {agents.map((a) => (
           <AgentChip
@@ -118,22 +150,7 @@ export function SpaceAgentsRow({
           />
         ))}
       </div>
-      {/* The /Agents pin: the rail's pad tab twin — same box, same edge tab (round cap left,
-          filled flush right), so the two glyphs share one column down both rows. Rendered only
-          when something is pickable — the palette's own gate — and dead while the device may
-          not write. */}
-      {commandsAvailable && (
-        <button
-          type="button"
-          onClick={onOpenCommands}
-          disabled={commandsDisabled}
-          aria-label={translate("composer.controls.agent")}
-          aria-haspopup="dialog"
-          className="-mr-3 flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
-        >
-          <Terminal className="size-4" />
-        </button>
-      )}
+      {side === "right" && pin}
       </div>
       </div>
   );

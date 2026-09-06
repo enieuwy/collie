@@ -17,6 +17,12 @@ export const es: Dictionary = {
   "settings.theme.option.light": "Claro",
   "settings.theme.option.dark": "Oscuro",
 
+  // --- settings.pins ---
+  "settings.pins.title": "Pesta\u00f1as laterales",
+  "settings.pins.description": "En qu\u00e9 borde se acoplan las pesta\u00f1as /Agents y Teclas.",
+  "settings.pins.option.left": "Izquierda",
+  "settings.pins.option.right": "Derecha",
+
   // --- settings.haptics ---
   "settings.haptics.title": "Respuesta háptica",
   "settings.haptics.description": "Vibración breve al presionar teclas o respuestas rápidas.",

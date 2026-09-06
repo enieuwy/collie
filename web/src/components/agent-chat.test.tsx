@@ -785,6 +785,45 @@ describe("AgentChat — space agents row", () => {
     expect(screen.getByText("Agent commands")).toBeInTheDocument();
   });
 
+  it("docks the /Agents pin on the configured side", () => {
+    // Default (left): the pin leads the row in DOM order, ahead of the first chip. Stored
+    // right: it trails after the last chip. Tab order follows the eye both ways, which is
+    // the point of slotting one button into two places instead of mirroring the tree.
+    // Memory store, not the global: this jsdom ships no localStorage (see use-pin-side.test.ts).
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      get length() {
+        return store.size;
+      },
+      clear: () => {
+        store.clear();
+      },
+      getItem: (k: string) => store.get(k) ?? null,
+      key: (i: number) => [...store.keys()][i] ?? null,
+      removeItem: (k: string) => {
+        store.delete(k);
+      },
+      setItem: (k: string, v: string) => {
+        store.set(k, String(v));
+      },
+    });
+    try {
+      renderRow();
+      const pin = screen.getByRole("button", { name: "Agent" });
+      const firstChip = screen.getByRole("button", { name: "claude" });
+      expect(pin.compareDocumentPosition(firstChip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      cleanup();
+
+      store.set("collie:pin-side:v1", JSON.stringify({ side: "right" }));
+      renderRow();
+      const pinRight = screen.getByRole("button", { name: "Agent" });
+      const lastChip = screen.getByRole("button", { name: "redesign" });
+      expect(pinRight.compareDocumentPosition(lastChip) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("hides /Agents when the pane has nothing pickable", () => {
     // A shell has no command catalog and the test store holds no operator rows — the palette
     // would open empty, so the button stays out. The row itself must be up, or the assertion

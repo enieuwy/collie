@@ -18,6 +18,12 @@ export const zhTW: Dictionary = {
   "settings.theme.option.light": "淺色",
   "settings.theme.option.dark": "深色",
 
+  // --- settings.pins ---
+  "settings.pins.title": "\u5074\u908a\u6a19\u7c64",
+  "settings.pins.description": "/Agents \u548c\u6309\u9375\u6a19\u7c64\u8981\u505c\u9760\u5728\u54ea\u4e00\u5074\u3002",
+  "settings.pins.option.left": "\u5de6\u5074",
+  "settings.pins.option.right": "\u53f3\u5074",
+
   // --- settings.haptics ---
   "settings.haptics.title": "觸覺回饋",
   "settings.haptics.description": "按鍵或快速回覆時觸發輕微震動。",

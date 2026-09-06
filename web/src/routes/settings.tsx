@@ -17,6 +17,7 @@ import { HandsFreeControl } from "@/components/hands-free-control";
 import { ZenControl } from "@/components/zen-control";
 import { InstallControl } from "@/components/install-control";
 import { LanguageControl } from "@/components/language-control";
+import { PinSideControl } from "@/components/pin-side-control";
 import { FontSettingsControl } from "@/components/font-settings";
 import { TypefaceControl } from "@/components/typeface-control";
 import { UpdatesSettingsCard } from "@/components/updates-settings-card";
@@ -123,6 +124,10 @@ export function SettingsRoute() {
         {/* Language sits right beside appearance — both are "how this phone presents itself" — and
             ahead of device behaviour, which is more of a per-device tweak than a standing choice. */}
         <LanguageControl />
+
+        {/* Pins dock beside appearance too — edge tabs are chrome, and chrome is presentation.
+            Set-once like Theme (holding hand), so no cycling control anywhere else. */}
+        <PinSideControl />
 
         {/* TWO FONT CARDS, ADJACENT, AND NO HEADING OVER THEM. They sit with appearance, immediately
             under Language: all four are "how this phone presents itself".

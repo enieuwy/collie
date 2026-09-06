@@ -18,6 +18,12 @@ export const de: Dictionary = {
   "settings.theme.option.light": "Hell",
   "settings.theme.option.dark": "Dunkel",
 
+  // --- settings.pins ---
+  "settings.pins.title": "Seitenpins",
+  "settings.pins.description": "An welcher Kante die Tabs /Agents und Tasten angedockt sind.",
+  "settings.pins.option.left": "Links",
+  "settings.pins.option.right": "Rechts",
+
   // --- settings.haptics ---
   "settings.haptics.title": "Haptik",
   "settings.haptics.description": "Kurze Vibration bei Tastendruck und Schnellantworten.",

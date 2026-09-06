@@ -17,6 +17,12 @@ export const ja: Dictionary = {
   "settings.theme.option.light": "ライト",
   "settings.theme.option.dark": "ダーク",
 
+  // --- settings.pins ---
+  "settings.pins.title": "\u30b5\u30a4\u30c9\u30bf\u30d6",
+  "settings.pins.description": "/Agents\u30bf\u30d6\u3068\u30ad\u30fc\u30bf\u30d6\u3092\u3069\u3061\u3089\u306e\u7aef\u306b\u914d\u7f6e\u3059\u308b\u304b\u3002",
+  "settings.pins.option.left": "\u5de6",
+  "settings.pins.option.right": "\u53f3",
+
   // --- settings.haptics ---
   "settings.haptics.title": "ハプティクス",
   "settings.haptics.description": "キー入力やクイック返信時に触覚フィードバックを返します。",

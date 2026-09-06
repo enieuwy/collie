@@ -1,18 +1,19 @@
 import { Check, Keyboard } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { useActionEcho } from "@/hooks/use-action-echo";
 import { useLocale } from "@/hooks/use-locale";
+import { useActionEcho } from "@/hooks/use-action-echo";
+import { usePinSide } from "@/hooks/use-pin-side";
 import { t as translate } from "@/lib/i18n";
 import { keyLabel } from "@/lib/key-queue";
 import { keysSendable } from "@/lib/mux-capability";
 
 // The fixed key rail: Termius's single quick-picker row, one tap, no dock open. Esc, Tab, ⇧Tab,
-// the four arrows, ^C — the keys a phone keyboard cannot send — plus a pinned pad button that
+// the four arrows, ^C — the keys a phone keyboard cannot send — plus a pinned pad tab that
 // toggles the full Keys dock (it carries `aria-expanded`, and shares the Keys toggle's old
 // dictionary string so nothing gains a key). The rail replaced the Controls row outright, so the
-// Agent palette and the Quick/Display docks have no entry — nothing here is derived from the
-// screen or from the command catalog.
+// Quick/Display docks have no entry — nothing here is derived from the screen or from the
+// command catalog. (The Agent palette's entry is the agents row's /Agents pin, above.)
 //
 // Backspace rides along ONLY while direct typing is armed: in Reply mode it would sit one row
 // above a textarea where it means the opposite (delete-draft), so it stays off. Enter and Space
@@ -43,13 +44,46 @@ interface KeyRailProps {
 }
 export function KeyRail({ onSend, unsupportedKeys, directActive, onOpenPad, padOpen, disabled }: KeyRailProps) {
   useLocale();
+  const { side } = usePinSide();
   const echo = useActionEcho();
 
   const keys = directActive ? [...RAIL_KEYS, ...DIRECT_KEYS] : RAIL_KEYS;
 
+  // The pad tab, built once and slotted on the configured edge — the agents row's /Agents pin
+  // twin. Bleed, round cap and glyph padding trade sides together with it.
+  const pad = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      disabled={disabled}
+      onClick={onOpenPad}
+      aria-label={translate("composer.controls.keys")}
+      aria-expanded={padOpen}
+      aria-controls="dock-keys"
+      className={
+        side === "left"
+          ? "-ml-3 h-8 shrink-0 touch-manipulation rounded-r-full rounded-l-none bg-muted pl-3 pr-2.5 text-muted-foreground select-none"
+          : "-mr-3 h-8 shrink-0 touch-manipulation rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
+      }
+    >
+      <Keyboard className="size-4" />
+    </Button>
+  );
+
   return (
-    <div data-slot="key-rail" className="-mr-3 mb-2 flex items-center gap-1.5">
-      <div className="flex flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div
+      data-slot="key-rail"
+      className={side === "left" ? "-ml-3 mb-2 flex items-center gap-1.5" : "-mr-3 mb-2 flex items-center gap-1.5"}
+    >
+      {side === "left" && pad}
+      <div
+        className={
+          side === "left"
+            ? "flex flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain [mask-image:linear-gradient(to_left,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            : "flex flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        }
+      >
         {keys.map((k) => {
           const phase = echo.phaseOf(k);
           // Greyed rather than removed: the rail order is fixed muscle memory, and pulling a key
@@ -72,23 +106,7 @@ export function KeyRail({ onSend, unsupportedKeys, directActive, onOpenPad, padO
           );
         })}
       </div>
-      {/* Pinned pad tab: the rail scrolls under it, it never scrolls away. The old edge cravat
-          mirrored — round cap on the left, filled flush to the screen edge on the right (`-mr-3`
-          bleeds the footer's own padding), so pins read as fixed chrome against scrolling
-          content. Icon-only, wearing the old Keys toggle's string so no dictionary gains a key. */}
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        disabled={disabled}
-        onClick={onOpenPad}
-        aria-label={translate("composer.controls.keys")}
-        aria-expanded={padOpen}
-        aria-controls="dock-keys"
-        className="h-8 shrink-0 touch-manipulation rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
-      >
-        <Keyboard className="size-4" />
-      </Button>
+      {side === "right" && pad}
     </div>
   );
 }
