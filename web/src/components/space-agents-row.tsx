@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ChevronUp, Slash } from "lucide-react";
+import { ChevronUp, Terminal } from "lucide-react";
 
 import { useLocale } from "@/hooks/use-locale";
 import { useLongPress } from "@/hooks/use-long-press";
@@ -103,7 +103,7 @@ export function SpaceAgentsRow({
       </button>
       {/* Chips plus the pinned /Agents door: the scroller takes the free width and fades under
           the pin, the rail's own arrangement. */}
-      <div className="flex h-7 items-center gap-1.5">
+      <div className="flex h-8 items-center gap-1.5">
       <div
         ref={scrollRef}
         className="flex h-7 min-w-0 flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain pr-3 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -118,10 +118,12 @@ export function SpaceAgentsRow({
           />
         ))}
       </div>
-      {/* The /Agents door: the Controls row's slash-command button, back from the dead. Pinned
-          past the scroll fade like the rail's pad button, right-aligned over the Keys pad key
-          below (`-mr-1` matches the rail's own inset). Rendered only when something is pickable
-          — the palette's own gate — and dead while the device may not write. */}
+      {/* The /Agents pin: the same box as the rail's pad key below (h-8, px-2.5, 16px glyph,
+          `-mr-1` inset) so the two glyphs share one column — a narrower box is what put it
+          6px left. Solid fill, not ghost: pins read as fixed chrome, chips as content. The
+          Terminal glyph replaces the Slash, which read as a stray pencil mark at this size.
+          Rendered only when something is pickable — the palette's own gate — and dead while
+          the device may not write. */}
       {commandsAvailable && (
         <button
           type="button"
@@ -129,9 +131,9 @@ export function SpaceAgentsRow({
           disabled={commandsDisabled}
           aria-label={translate("composer.controls.agent")}
           aria-haspopup="dialog"
-          className="-mr-1 flex size-6 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
+          className="-mr-1 flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-md bg-muted px-2.5 text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95 disabled:opacity-40"
         >
-          <Slash className="size-4" />
+          <Terminal className="size-4" />
         </button>
       )}
       </div>
