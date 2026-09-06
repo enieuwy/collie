@@ -180,7 +180,7 @@ export function AgentChat({
     [agent, agents, shellPanes],
   );
   // The agents working in this space, across tabs, in stable order — the run of session titles
-  // beside the switcher cravat. Same paneId ordering as `tabPanes` above, so the two agree about
+  // beside the switcher pill. Same paneId ordering as `tabPanes` above, so the two agree about
   // sequence wherever they overlap.
   const spaceAgents = useMemo(
     () =>
@@ -1479,8 +1479,8 @@ export function AgentChat({
                 )}
               </Collapse>
 
-              {/* The agents row: a left-edge cravat opening the full switcher sheet, beside a
-                  horizontally scrollable run of this space's agent session titles. It stands where
+              {/* The agents row: a horizontally scrollable run of this space's agent session
+                  titles under a centred up-pill opening the full switcher sheet. It stands where
                   the tap handle stood — directly above the composer, below the agent's statusline —
                   and that order is the same fix: a control the thumb reaches for by muscle memory
                   may not move because the terminal printed something (DESIGN.md §2). The statusline
@@ -1536,8 +1536,8 @@ export function AgentChat({
           </Collapse>
         </div>
 
-        {/* Quick switcher — just the panes (agents + shells), reached from the cravat. Switch-only
-            for panes: pane closing lives in the pane pill's long-press sheet, not here. A trailing
+        {/* Quick switcher — just the panes (agents + shells), reached from the pill. Switch-only
+            for panes: pane closing lives in a row chip's hold sheet, not here. A trailing
             Launch section rides along (see ThreadSidebar): this is the launcher's other home now
             that the pane header's rocket is gone, and the one reachable from inside a pane without
             going home first. */}

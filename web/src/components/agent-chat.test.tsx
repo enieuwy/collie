@@ -746,7 +746,7 @@ describe("AgentChat — space agents row", () => {
     expect(props.onSelect).toHaveBeenCalledWith("w1:p2");
   });
 
-  it("the cravat opens the full switcher sheet", async () => {
+  it("the up-pill opens the full switcher sheet", async () => {
     const user = userEvent.setup();
     renderRow();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -771,7 +771,7 @@ describe("AgentChat — space agents row", () => {
     expect(props.onSelect).not.toHaveBeenCalled();
   });
 
-  it("a swipe up on the row opens the same switcher as the cravat", () => {
+  it("a swipe up on the row opens the same switcher as the pill", () => {
     renderRow();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 

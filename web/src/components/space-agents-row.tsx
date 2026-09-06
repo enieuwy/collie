@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronUp } from "lucide-react";
 
 import { useLocale } from "@/hooks/use-locale";
 import { useLongPress } from "@/hooks/use-long-press";
@@ -8,18 +8,19 @@ import { t as translate } from "@/lib/i18n";
 import { paneDisplayName, type AgentView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-// The row that replaced the tab strip, the pane strip and the switcher handle: a left-edge
-// cravat that opens the full switcher sheet, and beside it every agent working in this space —
-// a horizontally scrollable run of session titles. Tapping a title switches straight to that
-// pane; the open one reads as current. Titles come from `paneDisplayName` (operator label, then
-// the agent's own session name, then the agent kind), the same precedence the old pane pills
-// used, so the row and the sheet never disagree about what a session is called.
+// The row that replaced the tab strip, the pane strip and the switcher handle: every agent
+// working in this space as a horizontally scrollable run of session titles, with a small
+// up-pill centred against its top border that opens the full switcher sheet. Tapping a title
+// switches straight to that pane; the open one reads as current. Titles come from
+// `paneDisplayName` (operator label, then the agent's own session name, then the agent kind),
+// the same precedence the old pane pills used, so the row and the sheet never disagree about
+// what a session is called.
 interface SpaceAgentsRowProps {
   /** This workspace's agents, in stable order. */
   agents: readonly AgentView[];
   currentPaneId: string;
   onSelect: (paneId: string) => void;
-  /** Opens the switcher sheet — the handle's old job, kept on the cravat. */
+  /** Opens the switcher sheet — the handle's old job, kept on the up-pill beside the swipe. */
   onOpenSwitcher: () => void;
   /** A hold on a chip opens that pane's options (rename, close) — the pane pill's old sheet. */
   onHoldPane: (pane: AgentView) => void;
@@ -47,30 +48,34 @@ export function SpaceAgentsRow({
       box.scrollLeft = current.offsetLeft - box.clientWidth / 2 + current.clientWidth / 2;
     }
   }, [currentPaneId]);
-  // Dragging UP anywhere on the row opens the quick switcher — the same sheet as the cravat,
-  // for the thumb that starts on a chip rather than the edge. Touch-only and read-only: it
+  // Dragging UP anywhere on the row opens the quick switcher — the same sheet as the pill,
+  // for the thumb that starts on a chip rather than the handle. Touch-only and read-only: it
   // never preventDefaults, so the row's horizontal scroll and every chip tap pass through.
   const swipe = useSwipeUp(onOpenSwitcher);
 
   return (
-    <div data-slot="space-agents" className="flex h-7 items-center gap-1.5" {...swipe}>
-      {/* The cravat: a tab on the row's leading edge, opening the switcher sheet — one of two
-          doors, the other being a swipe up anywhere on the row. Half-pill, flat against the
-          chrome it hangs off, round on the side the thumb meets, with a left chevron pointing
-          back at the sheet it opens — and the sheet's own accessible name, so it stays findable
-          by the string the handle answered to. */}
+    // The pill's own lane: 10px of top padding with the pill parked in it, flush with the
+    // chips below. An OVERLAY straddle was the first shape — half the pill over the border —
+    // but its lower half lands on the chips, and the scroller centres the current chip, so it
+    // would cover exactly the title the eye is looking for. In-flow costs 10px of chrome and
+    // covers nothing: not the statusline above, not a chip below.
+    <div data-slot="space-agents" className="relative px-3 pt-2.5" {...swipe}>
+      {/* The up-pill: the swipe-up's visible twin. A bare gesture has no affordance — nothing
+          says UP opens the picker — so the handle sits mid-screen (an easier target than the
+          old edge cravat it replaces) wearing the gesture's own arrow. Same sheet, same
+          accessible name the handle always answered to. */}
       <button
         type="button"
         onClick={onOpenSwitcher}
         aria-label={translate("chat.switcher.aria")}
         aria-haspopup="dialog"
-        className="flex h-7 w-9 shrink-0 touch-manipulation items-center justify-center rounded-r-full bg-muted/60 text-muted-foreground transition-colors select-none hover:bg-muted active:scale-95"
+        className="absolute top-0.5 left-1/2 flex h-5 w-12 -translate-x-1/2 touch-manipulation items-center justify-center rounded-full border border-rule bg-muted text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95"
       >
-        <ChevronLeft className="size-4" />
+        <ChevronUp className="size-4" />
       </button>
       <div
         ref={scrollRef}
-        className="flex flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain py-1 pr-3 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex h-7 flex-1 items-center gap-1.5 overflow-x-auto overscroll-x-contain pr-3 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {agents.map((a) => (
           <AgentChip
