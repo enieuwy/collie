@@ -54,11 +54,12 @@ export function SpaceAgentsRow({
   const swipe = useSwipeUp(onOpenSwitcher);
 
   return (
-    // The pill's own lane: 10px of top padding with the pill parked in it, flush with the
-    // chips below. An OVERLAY straddle was the first shape — half the pill over the border —
-    // but its lower half lands on the chips, and the scroller centres the current chip, so it
-    // would cover exactly the title the eye is looking for. In-flow costs 10px of chrome and
-    // covers nothing: not the statusline above, not a chip below.
+    // The pill's own lane: 10px of top padding whose upper half the pill vacates — it rides
+    // centred ON the chrome border above this row (half over the statusline, half in this
+    // lane), never on the chips: the scroller centres the current chip, so anything lower
+    // would cover exactly the title the eye is looking for. In-flow costs 10px of chrome;
+    // the statusline lends the top half its bottom-centre 48px, the emptiest patch of that
+    // strip.
     <div data-slot="space-agents" className="relative px-3 pt-2.5" {...swipe}>
       {/* The up-pill: the swipe-up's visible twin. A bare gesture has no affordance — nothing
           says UP opens the picker — so the handle sits mid-screen (an easier target than the
@@ -69,7 +70,7 @@ export function SpaceAgentsRow({
         onClick={onOpenSwitcher}
         aria-label={translate("chat.switcher.aria")}
         aria-haspopup="dialog"
-        className="absolute top-0.5 left-1/2 flex h-5 w-12 -translate-x-1/2 touch-manipulation items-center justify-center rounded-full border border-rule bg-muted text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95"
+        className="absolute -top-2.5 left-1/2 z-10 flex h-5 w-12 -translate-x-1/2 touch-manipulation items-center justify-center rounded-full border border-rule bg-muted text-muted-foreground transition-colors select-none hover:bg-muted/60 active:scale-95"
       >
         <ChevronUp className="size-4" />
       </button>
