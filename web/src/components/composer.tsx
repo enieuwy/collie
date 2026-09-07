@@ -21,7 +21,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { KeyRail } from "@/components/key-rail";
 import { DisplayPrefsContent } from "@/components/display-prefs";
 import { SectionLabel } from "@/components/ui/section-label";
-import { Collapse } from "@/components/ui/collapse";
+import { Collapse, COLLAPSE_MS } from "@/components/ui/collapse";
 import { SpaceAgentsRow } from "@/components/space-agents-row";
 import * as api from "@/lib/api";
 import { describeApiError, describeThrownError } from "@/lib/api-error-message";
@@ -351,6 +351,17 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   // when the exit has not finished gliding.
   const [drawerSession, setDrawerSession] = useState(0);
   const [queuedKeys, setQueuedKeys] = useState(0);
+  // The row reads a LAGGED drawer. Leaving the Keys dock holds the lag at "keys" through the
+  // exit glide, so the row stays shut instead of gliding back WHILE the dock glides shut — the
+  // same two-glide bounce as the opening, mirrored. The close is sequential: dock glides shut,
+  // then the row glides back. Set in the transition choke below (not an effect), so the lag is
+  // already in place in the closing commit — an effect would fire one commit late and the row
+  // would start back in the very frame the dock starts shutting.
+  const [drawerLag, setDrawerLag] = useState<ComposerDrawer>(null);
+  const lagTimer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (lagTimer.current !== null) window.clearTimeout(lagTimer.current);
+  }, []);
   // Two-tap guard for discarding that sequence. Separate from sendConfirm so an armed "Really send?"
   // and an armed discard can't clobber each other.
   const discardConfirm = usePendingConfirm();
@@ -376,6 +387,15 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     // A new opening gets a new session even when the last exit is still gliding — the session
     // key on each dock below turns the reopen into a remount, not a resurrection.
     if (next !== null && next !== drawer) setDrawerSession((s) => s + 1);
+    if (drawer === "keys" && next !== "keys") {
+      // Leaving Keys: the lag stays behind for exactly the exit glide (see drawerLag above).
+      window.clearTimeout(lagTimer.current ?? undefined);
+      lagTimer.current = window.setTimeout(() => setDrawerLag(next), COLLAPSE_MS);
+    } else {
+      window.clearTimeout(lagTimer.current ?? undefined);
+      lagTimer.current = null;
+      setDrawerLag(next);
+    }
     setDrawer(next);
   }
   const closeDrawer = () => requestDrawer(null);
@@ -1097,7 +1117,13 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             Same stand-down rules as before it moved: keyboard up or Keys dock open hides it,
             and `Collapse` unmounts it at the end of the exit so it leaves the tab order. */}
         <Collapse
-          open={!composing && drawer !== "keys" && rowVisible}
+          open={!composing && drawerLag !== "keys" && rowVisible}
+          // Snap while the Keys dock drives the edge, glide otherwise: the row standing down in
+          // glide ALONGSIDE the dock site gliding open reads as a bounce against a live-wrapping
+          // mirror. The 28px row vanishes as a mode switch; the dock keeps the one glide, and the
+          // return waits out the exit (drawerLag) — so each direction moves exactly one box at a
+          // time. Keyboard/composing edges still glide.
+          instant={drawerLag === "keys"}
           // Bleed to the chrome edges: the footer wears px-3, and without this the row —
           // pin included — parks 12px off the glass it used to sit flush on.
           className="-mx-3"
