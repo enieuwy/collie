@@ -37,7 +37,7 @@ import { splitLines } from "@/lib/blocks";
 import { adapterFor } from "@/lib/harness";
 import { blockOwnsKeyboard } from "@/lib/harness/dialog-contract";
 import { FindBar } from "@/components/find-bar";
-import { Composer, type ComposerHandle } from "@/components/composer";
+import { Composer, type ComposerDrawer, type ComposerHandle } from "@/components/composer";
 import { ThreadSidebar } from "@/components/agent-sidebar";
 import { SpaceAgentsRow } from "@/components/space-agents-row";
 import { AgentIcon } from "@/components/agent-icon";
@@ -376,6 +376,14 @@ export function AgentChat({
     quickRepliesFor(agent?.agent, isShell, operatorReplies).some((g) => g.items.length > 0);
   const commandsLocked = gone || readOnly || hostBlock !== undefined || rowMissingSend !== null;
   const openCommands = useCallback(() => composerRef.current?.openCommands(), []);
+  // The agents row stands down while the Keys dock is open — driving keys wants the mirror,
+  // not a session switcher. Stable callback so the composer's report effect only runs on
+  // real drawer transitions.
+  const [keysOpen, setKeysOpen] = useState(false);
+  const handleDrawerChange = useCallback(
+    (drawer: ComposerDrawer) => setKeysOpen(drawer === "keys"),
+    [],
+  );
 
   // ── COMPOSING MODE — read ONCE, here, for the whole pane ──────────────────────
   // The soft keyboard takes roughly 45% of a phone. What is left has to hold the header, the tab
@@ -1507,13 +1515,15 @@ export function AgentChat({
                   stays the mirror's own last row, cut from the pane tail.
 
                   It stands down while the keyboard is up: switching sessions is a BEFORE-typing
-                  act, so the row costs its height at the one moment it cannot be wanted. The sheet
-                  stays reachable the instant the keyboard closes, and `Collapse` unmounts the row
-                  at the end of the exit so it leaves the tab order with the pixels. */}
+                  act, so the row costs its height at the one moment it cannot be wanted. Same
+                  while the Keys dock is open — driving keys wants the mirror, not a switcher.
+                  The sheet stays reachable the instant the keyboard closes, and `Collapse`
+                  unmounts the row at the end of the exit so it leaves the tab order with the pixels. */}
               <div data-slot="chrome-block" className="border-t border-rule bg-chrome">
                 <Collapse
                   open={
                     !composing &&
+                    !keysOpen &&
                     (agents.length + shellPanes.length > 0 || launchers.length > 0)
                   }
                 >
@@ -1554,6 +1564,7 @@ export function AgentChat({
                   setRawTerminal={setRawTerminal}
                   setTapToFocus={setTapToFocus}
                   onSent={onSent}
+                  onDrawerChange={handleDrawerChange}
                 />
               </div>
             </div>

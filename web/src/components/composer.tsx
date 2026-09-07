@@ -106,6 +106,8 @@ interface ComposerProps {
   setTapToFocus: (tapToFocus: boolean) => void;
   /** Snap the mirror to the live tail (follow + revalidate + scroll) after a successful send. */
   onSent: () => void;
+  /** Reports every drawer transition (the agents row stands down while Keys is open). */
+  onDrawerChange?: (drawer: ComposerDrawer) => void;
 }
 
 // The composer cluster at the bottom of the pane view — everything a phone keyboard can't do on its
@@ -125,7 +127,7 @@ interface ComposerProps {
 // so the mirror has to stay visible while you flip them) — the Controls row that opened it is gone,
 // so they wait for a new entry. Find lives in the header, where its find bar already takes over
 // the row.
-type ComposerDrawer = "cmd" | "keys" | "display" | null;
+export type ComposerDrawer = "cmd" | "keys" | "display" | null;
 
 // Pause after clearing a stranded terminal draft so the TUI settles before pane.send_text. Exported
 // so the test can pin the WAIT ITSELF (the reply never overtakes the sweep) against the constant
@@ -195,13 +197,13 @@ function ComposerDock({
           </Button>
         </div>
       )}
-      <div ref={bodyRef} className="max-h-[45dvh] min-h-0 overflow-y-auto">{children}</div>
+      {/* Short cap so the mirror keeps room while the dock stands — the body scrolls. */}
+      <div ref={bodyRef} className="max-h-[30dvh] min-h-0 overflow-y-auto">{children}</div>
     </div>
   );
 }
-
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
-  { paneId, scope, agent, isShell, gone, readOnly, hostBlock, composing, dialogPresent, text, terminalDraft, rawTerminalDraft, prefs, setWrap, stepFontSize, setRawTerminal, setTapToFocus, onSent },
+  { paneId, scope, agent, isShell, gone, readOnly, hostBlock, composing, dialogPresent, text, terminalDraft, rawTerminalDraft, prefs, setWrap, stepFontSize, setRawTerminal, setTapToFocus, onSent, onDrawerChange },
   ref,
 ) {
   const revalidator = useRevalidator();
@@ -329,6 +331,12 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const [previewLatched, setPreviewLatched] = useState(false);
   // Composer sheets are mutually exclusive — at most one open (Keys / Agent / Display).
   const [drawer, setDrawer] = useState<ComposerDrawer>(null);
+  // The agents row stands down while the Keys dock is open — the parent owns that row, so
+  // every transition is reported out. A changing callback identity re-fires this; callers
+  // pass a stable one (or a setState fn) so it only runs on real transitions.
+  useEffect(() => {
+    onDrawerChange?.(drawer);
+  }, [drawer, onDrawerChange]);
   // Keys staged in the (unmounted-on-close) NavTray, pushed up so leaving the Keys dock can guard a
   // composed sequence. See requestDrawer.
   const [queuedKeys, setQueuedKeys] = useState(0);

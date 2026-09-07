@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ChevronUp, Terminal } from "lucide-react";
+import { Bot, ChevronUp } from "lucide-react";
 
 import { StatusDot } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -88,7 +88,7 @@ export function SpaceAgentsRow({
           : "flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
       }
     >
-      <Terminal className="size-4" />
+      <Bot className="size-4" />
     </Button>
   ) : null;
 

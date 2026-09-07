@@ -845,6 +845,25 @@ describe("AgentChat — space agents row", () => {
     expect(screen.getByRole("button", { name: "Agent" })).toBeInTheDocument();
   });
 
+  it("stands the agents row down while the Keys dock is open", async () => {
+    // Driving keys wants the mirror, not a session switcher: opening the dock collapses the
+    // row (Collapse unmounts at the end of its exit), closing it brings the row back.
+    const user = userEvent.setup();
+    renderRow();
+    expect(document.querySelector('[data-slot="space-agents"]')).toBeInTheDocument();
+    const pad = screen
+      .getAllByRole("button", { name: "Keys" })
+      .find((b) => b.hasAttribute("aria-expanded"))!;
+    await user.click(pad);
+    await waitFor(() =>
+      expect(document.querySelector('[data-slot="space-agents"]')).toBeNull(),
+    );
+    await user.click(pad);
+    await waitFor(() =>
+      expect(document.querySelector('[data-slot="space-agents"]')).toBeInTheDocument(),
+    );
+  });
+
   it("a swipe up on the row opens the same switcher as the pill", () => {
     renderRow();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
