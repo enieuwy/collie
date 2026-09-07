@@ -195,7 +195,6 @@ export const ja: Dictionary = {
   "composer.controls.keys": "キー",
   "composer.controls.typeAria": "ターミナルへの直接入力",
   "composer.controls.type": "入力",
-  "composer.controls.quick": "クイック",
   "composer.controls.agent": "エージェント",
   "composer.controls.displayAria": "表示設定",
   "composer.controls.display": "表示",
@@ -445,6 +444,7 @@ export const ja: Dictionary = {
 
   // --- commands (agent command palette) ---
   "commands.title": "エージェントコマンド",
+  "commands.quickReplies.title": "クイック返信",
   "commands.search.placeholder": "{count} 件のコマンドを検索…",
   "commands.common.hint": "一般 · 入力して全 {count} 件を検索",
   "commands.empty": "「{query}」に一致するコマンドはありません",

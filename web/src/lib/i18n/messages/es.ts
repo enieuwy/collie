@@ -197,7 +197,6 @@ export const es: Dictionary = {
   "composer.controls.keys": "Teclas",
   "composer.controls.typeAria": "Escribir en la terminal",
   "composer.controls.type": "Escribir",
-  "composer.controls.quick": "Rápido",
   "composer.controls.agent": "Agente",
   "composer.controls.displayAria": "Ajustes de pantalla",
   "composer.controls.display": "Pantalla",
@@ -449,6 +448,7 @@ export const es: Dictionary = {
 
   // --- commands (agent command palette) ---
   "commands.title": "Comandos del agente",
+  "commands.quickReplies.title": "Respuestas rápidas",
   "commands.search.placeholder": "Buscar en {count} comandos...",
   "commands.common.hint": "Comunes. Escriba para buscar los {count}",
   "commands.empty": "Ningún comando coincide con “{query}”.",

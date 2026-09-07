@@ -9,8 +9,9 @@ import { cn } from "@/lib/utils";
  *   call site gets this by default and looks exactly as it did.
  * - `above` — on its own line, over the row. Slightly smaller and un-bolded, because a label that
  *   owns a whole line does not need weight to separate it from its neighbours, and the strips it
- *   serves are denser than the dock. The values are `quick-actions.tsx:56`'s, at `mb-1` rather than
- *   `mb-1.5`, and with `leading-none` added.
+ *   serves are denser than the dock. The values are the old quick-reply group labels' (the dock
+ *   is gone — its replies live in the agent palette now), at `mb-1` rather than `mb-1.5`, and
+ *   with `leading-none` added.
  *
  *   `leading-none` is the one deliberate divergence from that source, so: WHY. `text-[10px]` is an
  *   arbitrary size and carries no line-height of its own, so it inherits the body's 1.5 and draws a

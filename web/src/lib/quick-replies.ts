@@ -1,4 +1,4 @@
-// The one-tap replies behind the composer's Quick dock, per pane kind.
+// The one-tap replies in the agent palette's quick section, per pane kind.
 //
 // Modelled on agent-commands.ts (a plain static catalog keyed by the Herdr snapshot `agent` string,
 // read through a tolerant lookup) and deliberately NOT on the harness adapter registry: an adapter
@@ -14,6 +14,7 @@
 // one-line addition rather than a restructuring.
 
 import { rowsFor } from "@/lib/operator-scope";
+import { t as translate } from "./i18n";
 import type { OperatorQuickReplyRow } from "@/lib/types";
 
 export interface QuickReplyGroup {
@@ -21,6 +22,18 @@ export interface QuickReplyGroup {
   title: string;
   /** The literal strings sent — each is typed into the pane and submitted verbatim. */
   items: readonly string[];
+}
+
+/** Group titles are catalog identifiers ("confirm"/"common"), not display text — translate them
+ *  here rather than in the data (the catalog above is sent verbatim, a different content class
+ *  from a UI label). Unknown ids (a future catalog entry) fall back to the raw identifier rather
+ *  than throwing. */
+export function quickReplyGroupTitle(title: string): string {
+  return title === "confirm"
+    ? translate("quickActions.group.confirm")
+    : title === "common"
+      ? translate("quickActions.group.common")
+      : title;
 }
 
 // Shared by every LLM harness. Deduped to distinct intents: no yes/ok/approve/go-ahead pile-up, and

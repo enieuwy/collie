@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { ChatInput } from "@/components/ui/chat/chat-input";
 import { NavTray } from "@/components/nav-tray";
 import { CommandPalette } from "@/components/command-palette";
-import { QuickActionsContent } from "@/components/quick-actions";
 import { KeyRail } from "@/components/key-rail";
 import { DisplayPrefsContent } from "@/components/display-prefs";
 import { SectionLabel } from "@/components/ui/section-label";
@@ -26,7 +25,7 @@ import { Collapse } from "@/components/ui/collapse";
 import * as api from "@/lib/api";
 import { describeApiError, describeThrownError } from "@/lib/api-error-message";
 import { useMuxCapability, useMuxUnsupportedKeys } from "@/lib/mux-capability";
-import { useOperatorCommands, useOperatorKeys } from "@/lib/operator-config";
+import { useOperatorCommands, useOperatorKeys, useOperatorQuickReplies } from "@/lib/operator-config";
 import { ctrlPresetsFor } from "@/lib/operator-keys";
 import { isDestructiveInput } from "@/lib/destructive";
 import { HostChip } from "@/components/host-chip";
@@ -111,10 +110,11 @@ interface ComposerProps {
 
 // The composer cluster at the bottom of the pane view — everything a phone keyboard can't do on its
 // own: the fixed key rail plus an inline key tray (via `pane.send_keys`), image upload, and the
-// reply Send (with a destructive-command two-tap guard). The Quick/Display docks still render
-// below but have no entry since the Controls row went away — restoring an entry re-arms them,
-// deleting the blocks finishes the job. The slash-command palette's entry is the agents row's
-// /Agents button (it opens through the ref, `openCommands`). Its state (draft,
+// reply Send (with a destructive-command two-tap guard). The Display dock still renders below
+// but has no entry since the Controls row went away — restoring an entry re-arms it, deleting
+// the block finishes the job. The one-tap replies moved into the slash-command palette as its
+// quick section; the palette's entry is the agents row's /Agents button (it opens through the
+// ref, `openCommands`). Its state (draft,
 // sending, upload, pending preview, its own Keys sheets) is entirely local; it reaches AgentChat
 // only through `onSent` (to re-follow the tail) and exposes `focusInput` so the mirror tap can
 // bring up the keyboard.
@@ -125,8 +125,7 @@ interface ComposerProps {
 // so the mirror has to stay visible while you flip them) — the Controls row that opened it is gone,
 // so they wait for a new entry. Find lives in the header, where its find bar already takes over
 // the row.
-type ComposerDrawer = "quick" | "cmd" | "keys" | "display" | null;
-
+type ComposerDrawer = "cmd" | "keys" | "display" | null;
 
 // Pause after clearing a stranded terminal draft so the TUI settles before pane.send_text. Exported
 // so the test can pin the WAIT ITSELF (the reply never overtakes the sweep) against the constant
@@ -141,13 +140,12 @@ const SENT_ECHO_GRACE_MS = 5_000;
 
 // Burst window for post-keypress revalidation (see scheduleKeyRevalidate).
 const KEY_REVALIDATE_MS = 300;
-
-// Shared in-flow dock chrome for Keys/Quick — an IN-FLOW panel (never an overlay), so the terminal
+// Shared in-flow dock chrome for Keys/Display — an IN-FLOW panel (never an overlay), so the terminal
 // mirror's flex-1 box shrinks and its tail stays visible while the dock is open (a covering sheet
 // hid exactly the prompt you were driving). Full-bleed top border + capped height keep the mirror
 // usable on a phone. The header (title + Close X) is a NON-scrolling child of a flex column; only the
 // body below it scrolls (max-h + overflow), so the Close X can never scroll out of reach on a short
-// viewport with a tall tray. One wrapper so Keys and Quick can't drift apart.
+// viewport with a tall tray. One wrapper so Keys and Display can't drift apart.
 // Keys goes bare on a single-host install (no title, no X): the Keys toggle and the fling both
 // close through the same discard confirm, so the header buys nothing there — but the HostChip it
 // carries IS the "which machine" safety mark, so any host at all keeps the full header.
@@ -329,7 +327,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   // below).
   const [handledKey, setHandledKey] = useState<string | null>(null);
   const [previewLatched, setPreviewLatched] = useState(false);
-  // Composer sheets are mutually exclusive — at most one open (Keys / Quick / Agent / Display).
+  // Composer sheets are mutually exclusive — at most one open (Keys / Agent / Display).
   const [drawer, setDrawer] = useState<ComposerDrawer>(null);
   // Keys staged in the (unmounted-on-close) NavTray, pushed up so leaving the Keys dock can guard a
   // composed sequence. See requestDrawer.
@@ -343,9 +341,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   // later open would let Send fire yesterday's chord sequence into today's TUI state, and this
   // surface's whole safety story is "you review exactly what is about to go on the wire". So the fix
   // for a mis-tap is a confirm, not persistence.
-  //
-  // Routed through here rather than guarding the dock's ✕ alone: the Keys toggle and the Quick /
-  // Agent / Display buttons all unmount the tray just as effectively. An armed-but-EMPTY queue (a
+  // Routed through here rather than guarding the dock's ✕ alone: the Keys toggle and any other
+  // drawer change unmount the tray just as effectively. An armed-but-EMPTY queue (a
   // lone `once` modifier, no chips) does not arm the confirm — one tap of setup isn't work worth
   // protecting, and over-guarding just trains you to double-tap through it reflexively.
   function requestDrawer(next: ComposerDrawer) {
@@ -644,6 +641,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 
   // The operator's own palette rows, resolved against the shipped catalog for the palette below.
   const operatorCommands = useOperatorCommands();
+  // The operator's own reply groups, resolved the same way — the palette renders them above the
+  // commands under the same replace rule (ADR 0018).
+  const operatorReplies = useOperatorQuickReplies();
   // The Keys tray's preset row, resolved the same way from the same one-shot read of /api/config.
   const keyPresets = ctrlPresetsFor(agent, useOperatorKeys());
   // Empty on every adapter that refuses nothing, and empty for Herdr's six as far as this tray is
@@ -662,8 +662,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   }
 
   // Resolves true only on a VERIFIED send (the text was seen in the pane's input box before the
-  // submit key went out). The quick-reply grid consumes the verdict to drive its own ✓ and to decide
-  // whether to close its dock, so every early return below has to answer honestly.
+  // submit key went out). Palette rows submit through here; the sheet closes on the tap either
+  // way, so every early return below still has to answer honestly.
   async function send(value: string, isDraft: boolean, force = false): Promise<boolean> {
     const t = value.trim();
     if (!t || locked || sending) return false;
@@ -1000,14 +1000,13 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             below (always visible, not gated behind the keyboard-open quick keys); structural commands
             (New tab/space, Kill) and Stop (Esc, in the Keys dock) live elsewhere. */}
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPickImage} />
-        {/* Keys / Quick / Display dock — a single in-flow site above the rail, so the panel grows
+        {/* Keys / Display dock — a single in-flow site above the rail, so the panel grows
             over the mirror, not the input. Whichever of the mutually exclusive drawers is active
             renders here via the shared ComposerDock chrome. Keys mounts the NavTray (unmounts on
-            close, so tab/queue reset each open); Quick mounts the two one-tap reply grids; Display
-            mounts the labelled mirror prefs. Keys has an entry (the rail pad) and Agent has one
-            (the agents row's /Agents button, through the ref) — Quick and Display render for a
-            drawer value nothing sets anymore. Agent stays a covering BottomSheet below (it's a
-            palette, not a pad). */}
+            close, so tab/queue reset each open); Display mounts the labelled mirror prefs. Keys
+            has an entry (the rail pad) and Agent has one (the agents row's /Agents button,
+            through the ref) — Display renders for a drawer value nothing sets anymore. Agent
+            stays a covering BottomSheet below (it's a palette, not a pad). */}
         {drawer === "keys" && (
           <ComposerDock
             id="dock-keys"
@@ -1027,17 +1026,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               presets={keyPresets}
               onQueueChange={setQueuedKeys}
               disabled={locked}
-            />
-          </ComposerDock>
-        )}
-        {drawer === "quick" && (
-          <ComposerDock id="dock-quick" title={translate("composer.controls.quick")} onClose={closeDrawer}>
-            <QuickActionsContent
-              onSend={(t) => send(t, false)}
-              onClose={closeDrawer}
-              agent={agent}
-              isShell={isShell}
-              disabled={locked || sending}
             />
           </ComposerDock>
         )}
@@ -1364,7 +1352,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         open={drawer === "cmd"}
         onClose={closeDrawer}
         agent={agent}
+        isShell={isShell}
         mine={operatorCommands}
+        mineReplies={operatorReplies}
         onInsert={insertCommand}
         onSubmit={(t) => send(t, false)}
       />

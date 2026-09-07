@@ -199,7 +199,6 @@ export const de: Dictionary = {
   "composer.controls.keys": "Tasten",
   "composer.controls.typeAria": "Ins Terminal schreiben",
   "composer.controls.type": "Tippen",
-  "composer.controls.quick": "Schnell",
   "composer.controls.agent": "Agent",
   "composer.controls.displayAria": "Anzeigeeinstellungen",
   "composer.controls.display": "Anzeige",
@@ -450,6 +449,7 @@ export const de: Dictionary = {
 
   // --- commands (agent command palette) ---
   "commands.title": "Agent-Befehle",
+  "commands.quickReplies.title": "Schnelle Antworten",
   "commands.search.placeholder": "{count} Befehle durchsuchen…",
   "commands.common.hint": "Häufig · Tippen, um alle {count} zu durchsuchen",
   "commands.empty": "Keine Befehle für „{query}“ gefunden.",

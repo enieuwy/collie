@@ -194,7 +194,6 @@ export const ko: Dictionary = {
   "composer.controls.keys": "키",
   "composer.controls.typeAria": "터미널 직접 입력",
   "composer.controls.type": "입력",
-  "composer.controls.quick": "빠른 실행",
   "composer.controls.agent": "에이전트",
   "composer.controls.displayAria": "표시 설정",
   "composer.controls.display": "표시",
@@ -443,6 +442,7 @@ export const ko: Dictionary = {
 
   // --- commands (agent command palette) ---
   "commands.title": "에이전트 명령",
+  "commands.quickReplies.title": "빠른 답장",
   "commands.search.placeholder": "명령어 {count}개 검색…",
   "commands.common.hint": "자주 쓰는 항목, 입력하여 전체 {count}개 검색",
   "commands.empty": "“{query}”와 일치하는 명령어가 없습니다.",

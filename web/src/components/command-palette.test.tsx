@@ -2,9 +2,14 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { CommandPalette } from "./command-palette";
-import type { OperatorCommand } from "@/lib/types";
+import type { OperatorCommand, OperatorQuickReplyRow } from "@/lib/types";
 
-function setup(overrides?: { agent?: string | null; mine?: OperatorCommand[] }) {
+function setup(overrides?: {
+  agent?: string | null;
+  isShell?: boolean;
+  mine?: OperatorCommand[];
+  mineReplies?: OperatorQuickReplyRow[];
+}) {
   // Widened at the binding, not asserted at the literal: the overrides below hand `null` and
   // `undefined` for the same prop, so the base value has to carry the whole domain.
   const agentProp: string | null | undefined = "claude";
@@ -12,6 +17,7 @@ function setup(overrides?: { agent?: string | null; mine?: OperatorCommand[] }) 
     open: true,
     onClose: vi.fn(),
     agent: agentProp,
+    isShell: false,
     onInsert: vi.fn(),
     onSubmit: vi.fn(),
     ...overrides,
@@ -78,10 +84,13 @@ describe("CommandPalette", () => {
     expect(props.onClose).toHaveBeenCalledOnce();
   });
 
-  it("renders nothing for an unknown agent (empty catalog → sheet still opens but no commands)", () => {
+  it("shows shipped quick replies for an unknown agent even with no command catalog", () => {
+    // Replies are agent-agnostic by design (lib/quick-replies) — an unknown harness gets the
+    // shared agent set, so the sheet is never empty for lack of a catalog.
     setup({ agent: "gemini" });
     expect(screen.queryByText("/status")).toBeNull();
-    expect(screen.queryByText("/compact")).toBeNull();
+    expect(screen.getByText("Quick replies")).toBeInTheDocument();
+    expect(screen.getByText("yes")).toBeInTheDocument();
   });
 
   it("shows one of the operator's own commands on the first screen and submits it", async () => {
@@ -173,5 +182,44 @@ describe("CommandPalette", () => {
     expect(screen.getByText("Confirm?")).toBeInTheDocument();
     await user.click(screen.getByText("Deploy staging"));
     expect(props.onSubmit).toHaveBeenCalledExactlyOnceWith("/deploy");
+  });
+
+  it("shows the shipped quick replies above the commands and submits one on tap", async () => {
+    const user = userEvent.setup();
+    const props = setup();
+    expect(screen.getByText("Quick replies")).toBeInTheDocument();
+    expect(screen.getByText("yes")).toBeInTheDocument();
+    expect(screen.getByText("continue")).toBeInTheDocument();
+    await user.click(screen.getByText("yes"));
+    expect(props.onSubmit).toHaveBeenCalledExactlyOnceWith("yes");
+    expect(props.onClose).toHaveBeenCalledOnce();
+    expect(props.onInsert).not.toHaveBeenCalled();
+  });
+
+  it("filters quick replies with the search while commands fall away", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.type(screen.getByPlaceholderText(/Search \d+ commands/), "ret");
+    expect(screen.getByText("retry")).toBeInTheDocument();
+    expect(screen.queryByText("/status")).toBeNull();
+    expect(screen.queryByText("yes")).toBeNull();
+  });
+
+  it("gives a shell y/n and none of the agent phrases", () => {
+    setup({ agent: "shell", isShell: true });
+    expect(screen.getByText("y")).toBeInTheDocument();
+    expect(screen.getByText("n")).toBeInTheDocument();
+    expect(screen.queryByText("continue")).toBeNull();
+    expect(screen.queryByText("skip")).toBeNull();
+  });
+
+  it("shows the operator's reply groups instead of the shipped ones", async () => {
+    const user = userEvent.setup();
+    const props = setup({
+      mineReplies: [{ title: "go", items: ["ship it"] }],
+    });
+    expect(screen.queryByText("yes")).toBeNull();
+    await user.click(screen.getByText("ship it"));
+    expect(props.onSubmit).toHaveBeenCalledExactlyOnceWith("ship it");
   });
 });

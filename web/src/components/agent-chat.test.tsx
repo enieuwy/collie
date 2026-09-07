@@ -834,15 +834,15 @@ describe("AgentChat — space agents row", () => {
     }
   });
 
-  it("hides /Agents when the pane has nothing pickable", () => {
-    // A shell has no command catalog and the test store holds no operator rows — the palette
-    // would open empty, so the button stays out. The row itself must be up, or the assertion
+  it("shows /Agents on a shell — its y/n quick replies are pickable", () => {
+    // A shell ships no slash-command catalog, but the palette's quick section still gives it
+    // y/n (lib/quick-replies), so the pin stays. The row itself must be up, or the assertion
     // is vacuous.
     const shell = fixtureShellPanes[0]!;
     renderChat({ agent: shell, agents: [shell] });
 
     expect(document.querySelector('[data-slot="space-agents"]')).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Agent" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Agent" })).toBeInTheDocument();
   });
 
   it("a swipe up on the row opens the same switcher as the pill", () => {

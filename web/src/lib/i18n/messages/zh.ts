@@ -185,7 +185,6 @@ export const zh: Dictionary = {
   "composer.controls.keys": "按键",
   "composer.controls.typeAria": "输入至终端",
   "composer.controls.type": "输入",
-  "composer.controls.quick": "快捷",
   "composer.controls.agent": "智能体",
   "composer.controls.displayAria": "显示设置",
   "composer.controls.display": "显示",
@@ -432,6 +431,7 @@ export const zh: Dictionary = {
 
   // --- commands (agent command palette) ---
   "commands.title": "Agent 命令",
+  "commands.quickReplies.title": "快速回复",
   "commands.search.placeholder": "搜索 {count} 条命令…",
   "commands.common.hint": "常用命令 · 输入以搜索全部 {count} 条",
   "commands.empty": "未找到匹配“{query}”的命令。",

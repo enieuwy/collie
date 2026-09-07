@@ -184,7 +184,6 @@ export const zhTW: Dictionary = {
   "composer.controls.keys": "按鍵",
   "composer.controls.typeAria": "輸入至終端機",
   "composer.controls.type": "輸入",
-  "composer.controls.quick": "快速",
   "composer.controls.agent": "Agent",
   "composer.controls.displayAria": "顯示設定",
   "composer.controls.display": "顯示",
@@ -428,6 +427,7 @@ export const zhTW: Dictionary = {
 
   // --- commands (agent command palette) ---
   "commands.title": "Agent 指令",
+  "commands.quickReplies.title": "快速回覆",
   "commands.search.placeholder": "搜尋 {count} 條指令…",
   "commands.common.hint": "常用指令 · 輸入以搜尋全部 {count} 條",
   "commands.empty": "找不到符合「{query}」的指令。",

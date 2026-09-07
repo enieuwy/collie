@@ -1,4 +1,4 @@
-import { quickRepliesFor } from "./quick-replies";
+import { quickRepliesFor, quickReplyGroupTitle } from "./quick-replies";
 
 // The catalog is data, but the LOOKUP carries the policy — that a shell is not an agent, and that an
 // unknown/hostile agent string can't crash the dock.
@@ -83,5 +83,13 @@ describe("quickRepliesFor with operator rows", () => {
     expect(quickRepliesFor("claude", false, mixed)).toEqual([
       { title: "confirm", items: ["scoped"] },
     ]);
+  });
+});
+
+describe("quickReplyGroupTitle", () => {
+  it("translates the shipped catalog ids and passes unknown ones through", () => {
+    expect(quickReplyGroupTitle("confirm")).toBe("confirm");
+    expect(quickReplyGroupTitle("common")).toBe("common");
+    expect(quickReplyGroupTitle("some-future-group")).toBe("some-future-group");
   });
 });

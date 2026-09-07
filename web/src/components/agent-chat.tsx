@@ -59,10 +59,11 @@ import type { PromptBlockAction } from "@/components/prompt-select-block";
 import type { PreviewBlockAction } from "@/components/preview-select-block";
 import type { MenuBlockAction } from "@/components/menu-block";
 import { commandsFor } from "@/lib/agent-commands";
+import { quickRepliesFor } from "@/lib/quick-replies";
 import { canGrowRequestedLines, growRequestedLines } from "@/lib/loaders";
 import { cwdBeyondName } from "@/lib/pane-name";
 import { useMuxCapability } from "@/lib/mux-capability";
-import { useOperatorCommands } from "@/lib/operator-config";
+import { useOperatorCommands, useOperatorQuickReplies } from "@/lib/operator-config";
 import { hasJournalAdapter } from "@/lib/journal-agents";
 import { historyPath, spacePath } from "@/lib/nav";
 import { isReadOnly, statusLabel, type AgentView, type BridgeStatus, type DeviceAuth } from "@/lib/types";
@@ -361,16 +362,18 @@ export function AgentChat({
   const composerRef = useRef<ComposerHandle>(null);
 
   const gone = !agent;
-
   // The agents row's /Agents button needs Composer's two answers — is there anything to pick,
-  // and may this device write. `commandsFor` runs on the palette's own inputs so the gate is
-  // identical; the lock is Composer's `locked` recomputed up here, because the button lives up
-  // here. One expression in two places — keep in step.
+  // and may this device write. `commandsFor`/`quickRepliesFor` run on the palette's own inputs
+  // so the gate is identical; the lock is Composer's `locked` recomputed up here, because the
+  // button lives up here. One expression in two places — keep in step.
   const operatorCommands = useOperatorCommands();
+  const operatorReplies = useOperatorQuickReplies();
   const rowCanType = useMuxCapability("typeText");
   const rowCanSendKeys = useMuxCapability("sendKeys");
   const rowMissingSend = !rowCanType.capable ? rowCanType : !rowCanSendKeys.capable ? rowCanSendKeys : null;
-  const commandsAvailable = commandsFor(agent?.agent, operatorCommands).length > 0;
+  const commandsAvailable =
+    commandsFor(agent?.agent, operatorCommands).length > 0 ||
+    quickRepliesFor(agent?.agent, isShell, operatorReplies).some((g) => g.items.length > 0);
   const commandsLocked = gone || readOnly || hostBlock !== undefined || rowMissingSend !== null;
   const openCommands = useCallback(() => composerRef.current?.openCommands(), []);
 

@@ -211,7 +211,6 @@ export const en = {
   "composer.controls.keys": "Keys",
   "composer.controls.typeAria": "Type into terminal",
   "composer.controls.type": "Type",
-  "composer.controls.quick": "Quick",
   "composer.controls.agent": "Agent",
   "composer.controls.displayAria": "Display settings",
   "composer.controls.display": "Display",
@@ -464,11 +463,11 @@ export const en = {
 
   // --- commands (agent command palette) ---
   "commands.title": "Agent commands",
+  "commands.quickReplies.title": "Quick replies",
   "commands.search.placeholder": "Search {count} commands…",
   "commands.common.hint": "Common · type to search all {count}",
   "commands.empty": "No commands match “{query}”.",
   "commands.confirm": "Confirm?",
-
   // --- quickActions (one-tap reply dock) ---
   "quickActions.group.confirm": "confirm",
   "quickActions.group.common": "common",
