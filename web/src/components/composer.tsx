@@ -351,12 +351,11 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   // when the exit has not finished gliding.
   const [drawerSession, setDrawerSession] = useState(0);
   const [queuedKeys, setQueuedKeys] = useState(0);
-  // The row reads a LAGGED drawer. Leaving the Keys dock holds the lag at "keys" through the
-  // exit glide, so the row stays shut instead of gliding back WHILE the dock glides shut — the
-  // same two-glide bounce as the opening, mirrored. The close is sequential: dock glides shut,
-  // then the row glides back. Set in the transition choke below (not an effect), so the lag is
-  // already in place in the closing commit — an effect would fire one commit late and the row
-  // would start back in the very frame the dock starts shutting.
+  // A LAGGED drawer, for the dock site's close-snap. In the closing commit `drawer` is already
+  // null — indistinguishable from stably shut — while the lag still says "keys", which is exactly
+  // the edge that must snap instead of glide (see the site above). Set in the transition choke
+  // below (not an effect), so the lag is in place in the closing commit itself. The timer only
+  // releases it; nothing reads the lag except that one `instant` prop.
   const [drawerLag, setDrawerLag] = useState<ComposerDrawer>(null);
   const lagTimer = useRef<number | null>(null);
   useEffect(() => () => {
@@ -1044,12 +1043,15 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             the labelled mirror prefs. Keys has an entry (the rail pad) and Agent has one (the
             agents row's pin, through the ref) — Display renders for a drawer value nothing sets
             anymore. */}
-        {/* One shared expander for every drawer — keys, agent, display. Each branch used to
-        mount bare: the agent panel popped in instantly while the keys panel arrived with the
-        row standing down beside it, which read as a bounce. Now all three ride the same
-        0fr↔1fr drawer motion (240ms ease-out, instant under reduced motion), open and shut —
-        Collapse holds the last panel through the exit so the close glides too. */}
-        <Collapse open={drawer !== null}>
+        <Collapse
+          open={drawer !== null}
+          // Snap shut, glide open. A gliding exit underlaps the row's return — sequential or
+          // simultaneous, the bottom edge reverses (up with the dock, down with the row) and
+          // reads as overshoot. The snap lands in the closing commit (drawer null while the lag
+          // below still says keys); the row glides straight back under it. Openings keep the
+          // glide: mounting fresh tray content mid-glide is the one motion, nothing to reverse.
+          instant={drawer === null && drawerLag !== null}
+        >
         {drawer === "keys" && (
           <ComposerDock
             // Session key: a reopen during the exit glide remounts instead of reconciling onto
@@ -1117,13 +1119,13 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             Same stand-down rules as before it moved: keyboard up or Keys dock open hides it,
             and `Collapse` unmounts it at the end of the exit so it leaves the tab order. */}
         <Collapse
-          open={!composing && drawerLag !== "keys" && rowVisible}
-          // Snap while the Keys dock drives the edge, glide otherwise: the row standing down in
-          // glide ALONGSIDE the dock site gliding open reads as a bounce against a live-wrapping
-          // mirror. The 28px row vanishes as a mode switch; the dock keeps the one glide, and the
-          // return waits out the exit (drawerLag) — so each direction moves exactly one box at a
-          // time. Keyboard/composing edges still glide.
-          instant={drawerLag === "keys"}
+          open={!composing && drawer !== "keys" && rowVisible}
+          // Snap out while the Keys dock opens, glide back when it shuts. The snap keeps the
+          // opening to one moving box (the row vanishing in glide alongside the dock read as a
+          // bounce against a live-wrapping mirror); the dock snaps shut itself on the way out
+          // (see the site above), so the row can glide straight back under it with nothing to
+          // reverse against. Keyboard/composing edges still glide both ways.
+          instant={drawer === "keys"}
           // Bleed to the chrome edges: the footer wears px-3, and without this the row —
           // pin included — parks 12px off the glass it used to sit flush on.
           className="-mx-3"
