@@ -74,6 +74,11 @@ function renderComposer(overrides: Partial<ComponentProps<typeof Composer>> = {}
     setRawTerminal: vi.fn(),
     setTapToFocus: vi.fn(),
     onSent: vi.fn(),
+    spaceAgents: [],
+    onSelectPane: vi.fn(),
+    onOpenSwitcher: vi.fn(),
+    onHoldPane: vi.fn(),
+    rowVisible: false,
     ...overrides,
   };
   const router = createMemoryRouter([{ path: "/", element: <Composer {...props} /> }]);
@@ -167,6 +172,11 @@ function renderComposerWithStatus(
     setRawTerminal: vi.fn(),
     setTapToFocus: vi.fn(),
     onSent: vi.fn(),
+    spaceAgents: [],
+    onSelectPane: vi.fn(),
+    onOpenSwitcher: vi.fn(),
+    onHoldPane: vi.fn(),
+    rowVisible: false,
     ...overrides,
   };
   const router = createMemoryRouter([
@@ -542,6 +552,11 @@ describe("Composer — send", () => {
               setRawTerminal={vi.fn()}
               setTapToFocus={vi.fn()}
               onSent={vi.fn()}
+              spaceAgents={[]}
+              onSelectPane={vi.fn()}
+              onOpenSwitcher={vi.fn()}
+              onHoldPane={vi.fn()}
+              rowVisible={false}
             />
           </>
         );
@@ -635,6 +650,11 @@ describe("Composer — send", () => {
       setRawTerminal: vi.fn(),
       setTapToFocus: vi.fn(),
       onSent: vi.fn(),
+      spaceAgents: [],
+      onSelectPane: vi.fn(),
+      onOpenSwitcher: vi.fn(),
+      onHoldPane: vi.fn(),
+      rowVisible: false,
     };
     const router = createMemoryRouter([
       {
@@ -708,6 +728,11 @@ describe("Composer — typing into the terminal", () => {
             setRawTerminal={vi.fn()}
             setTapToFocus={vi.fn()}
             onSent={vi.fn()}
+            spaceAgents={[]}
+            onSelectPane={vi.fn()}
+            onOpenSwitcher={vi.fn()}
+            onHoldPane={vi.fn()}
+            rowVisible={false}
           />
         </>
       );
@@ -849,6 +874,11 @@ describe("Composer — typing into the terminal", () => {
             setRawTerminal={vi.fn()}
             setTapToFocus={vi.fn()}
             onSent={vi.fn()}
+            spaceAgents={[]}
+            onSelectPane={vi.fn()}
+            onOpenSwitcher={vi.fn()}
+            onHoldPane={vi.fn()}
+            rowVisible={false}
           />
         </>
       );
@@ -1023,6 +1053,11 @@ describe("Composer — typing into the terminal", () => {
             setRawTerminal={vi.fn()}
             setTapToFocus={vi.fn()}
             onSent={vi.fn()}
+            spaceAgents={[]}
+            onSelectPane={vi.fn()}
+            onOpenSwitcher={vi.fn()}
+            onHoldPane={vi.fn()}
+            rowVisible={false}
           />
         </>
       );
@@ -1450,6 +1485,11 @@ function renderDraftHarness(overrides: Partial<ComponentProps<typeof Composer>> 
       setRawTerminal: vi.fn(),
       setTapToFocus: vi.fn(),
       onSent: vi.fn(),
+      spaceAgents: [],
+      onSelectPane: vi.fn(),
+      onOpenSwitcher: vi.fn(),
+      onHoldPane: vi.fn(),
+      rowVisible: false,
       ...rest,
       terminalDraft: stable,
       rawTerminalDraft: raw,
@@ -1697,11 +1737,6 @@ describe("Composer — terminal-draft preview", () => {
 });
 
 // Mitigation A for the in-flight self-race: the composer knows what it just sent, so when the SAME
-// text shows up on the terminal's "❯" line moments later (our own reply before the bridge's pending
-// Enter lands), it must NOT be treated as a stranded draft — no chip, and no destructive clear-prefix
-// on the next Send. A harness lets the test flip `terminalDraft` after a send, the way the parent
-// would once the mirror echoes the in-flight text back.
-describe("Composer — in-flight echo suppression (match-last-sent)", () => {
   function EchoHarness({ echoValue }: { echoValue: string }) {
     // The echo lands on BOTH the raw and the stabilised line at once (a persistent echo is stable).
     const [draft, setDraft] = useState<string | null>(null);
@@ -1721,6 +1756,11 @@ describe("Composer — in-flight echo suppression (match-last-sent)", () => {
       setRawTerminal: vi.fn(),
       setTapToFocus: vi.fn(),
       onSent: vi.fn(),
+      spaceAgents: [],
+      onSelectPane: vi.fn(),
+      onOpenSwitcher: vi.fn(),
+      onHoldPane: vi.fn(),
+      rowVisible: false,
     };
     return (
       <>
@@ -1802,7 +1842,6 @@ describe("Composer — in-flight echo suppression (match-last-sent)", () => {
     await waitFor(() => expect(callLog).toContain("reply:someone else's leftover"));
     expect(callLog).toContain("keys");
   });
-});
 
 // The no-service-worker self-updater must never reload over unsent work. The composer holds a reload
 // (lib/reload-guard) while its phone-owned input has REAL text or an upload is in flight — but a
@@ -2117,6 +2156,11 @@ describe("Composer — draft persistence", () => {
       setRawTerminal: vi.fn(),
       setTapToFocus: vi.fn(),
       onSent: vi.fn(),
+      spaceAgents: [],
+      onSelectPane: vi.fn(),
+      onOpenSwitcher: vi.fn(),
+      onHoldPane: vi.fn(),
+      rowVisible: false,
       ...overrides,
     };
   }

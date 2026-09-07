@@ -638,26 +638,12 @@ describe("AgentChat — block-grammar scoping (an agent with no adapter)", () =>
     expect(row(second)?.parentElement).toBe(row(strip)?.parentElement);
     expect(screen.queryByText(/❯/)).toBeNull(); // the input box was stripped off the mirror
   });
-  it("docks the agents row between the statusline and the composer, always", () => {
-    // THE OPERATOR'S REPORT, verbatim: "the switch panel up drawer sits above the agent Statusline,
-    // it should always be right above the bottom status row."
-    //
-    // It did. MEASURED in the browser on the pane screen at a true 390px viewport, page-relative
-    // tops, with the agent's own statusline present (a 3-row Claude run):
-    //
-    //   BEFORE   mirror 217.8 → 629.8 · handle 629.8 → 663.8 · statusline 663.8 → 714 · composer 714
-    //   AFTER    mirror 217.8 → 629.8 · statusline 629.8 → 680 · handle 680 → 714 · composer 714
-    //
-    // The handle stood 50px further up on a pane whose agent prints a statusline than on one that
-    // does not — and it moved again whenever the agent added or dropped a row, because that strip
-    // is 1–3 rows re-derived from the pane tail on every poll. A control the thumb reaches for by
-    // muscle memory may not be relocated by something the terminal printed: DESIGN.md §2. "Always"
-    // is the whole claim, so BOTH cases are asserted below, and the handle must be the last thing
-    // before the composer in each.
-    //
-    // It also puts the statusline back against the mirror it was cut from — that strip is the
-    // mirror's own last row, and a 34px grab handle wedged into the seam read as a boundary
-    // between the terminal and a piece of chrome that IS the terminal.
+  it("docks the agents row between the dock site and the rail, always", () => {
+    // The row used to stand ABOVE the composer: every opening panel pushed it up, so the pin
+    // moved under the thumb at the moment it was wanted (DESIGN.md §2). Now an opening panel
+    // grows above the row — row, rail and input never move, the mirror absorbs it. "Always"
+    // is the whole claim, so BOTH cases are asserted below: with the agent's own statusline
+    // present (a 3-row Claude run) and without it.
     for (const text of [STATUS_TEXT, MENU_TEXT]) {
       const { container } = renderChat({ text });
       const handle = screen.getByRole("button", { name: "Switch pane" });
@@ -670,18 +656,17 @@ describe("AgentChat — block-grammar scoping (an agent with no adapter)", () =>
       // Collapse fails here too.
       const handleRow = handle.closest('[data-slot="collapse"]')!;
       expect(handleRow).not.toBeNull();
-      // Same parent, and the handle's row is the sibling immediately before the composer — so
-      // nothing, statusline or otherwise, can ever get between the two.
-      expect(handleRow.parentElement).toBe(composer.parentElement);
-      expect(handleRow.nextElementSibling).toBe(composer);
-      // THAT SHARED PARENT IS THE CHROME BLOCK, and it is what answers the operator's later report
-      // that the drawer was "really hard to distinguish" in dark. The handle used to stand on the
-      // mirror's own black — `--background` IS the mirror's fill in dark (mirror-space.ts) — so a
-      // 6px grip was the only thing on screen saying a control was there. The block gives the handle
-      // and the composer ONE ground and closes it against the terminal with ONE rule, above
-      // everything the thumb operates. Its fill and rule are unconditional; the handle inside it is
-      // not, so the seam is one hairline whether or not there is a pane to switch to (DESIGN.md §4).
-      const block = handleRow.parentElement!;
+      // Inside the composer, directly above the rail — an opening dock grows above the row,
+      // never under it, so the pin stays where the thumb left it.
+      expect(handleRow.parentElement).toBe(composer);
+      expect(handleRow.nextElementSibling?.getAttribute("data-slot")).toBe("key-rail");
+      // THAT COMPOSER STANDS IN THE CHROME BLOCK, and it is what answers the operator's
+      // earlier report that the drawer was "really hard to distinguish" in dark. The block
+      // gives the handle and the composer ONE ground and closes it against the terminal
+      // with ONE rule, above everything the thumb operates. Its fill and rule are
+      // unconditional, so the seam is one hairline whether or not there is a pane to
+      // switch to (DESIGN.md §4).
+      const block = composer.parentElement!;
       expect(block.getAttribute("data-slot")).toBe("chrome-block");
       // --chrome, and NOT --muted: DESIGN.md §4 forbids --muted behind chrome, and the value it
       // carried in dark (rgb 38, under a rgb 10 terminal) was read as a bright slab. --chrome is the
@@ -692,8 +677,6 @@ describe("AgentChat — block-grammar scoping (an agent with no adapter)", () =>
       // …and the composer's own dock draws neither, so the two never double the line.
       expect(composer.className).not.toMatch(/(?:^|\s)border/);
       // …and where a statusline exists it is ABOVE the block, welded to the mirror's bottom edge.
-      // The handle is the FIRST thing inside the block, so it is still the first chrome the thumb
-      // meets coming up from the terminal.
       const strip = screen.queryByText("[Opus 4.8] ~/webapp · main")?.closest("div.truncate")
         ?.parentElement;
       if (strip) {
@@ -703,7 +686,6 @@ describe("AgentChat — block-grammar scoping (an agent with no adapter)", () =>
         // Welded means welded: the strip draws no rule of its own, or it doubles the
         // block's seam the moment the agents row stands down.
         expect(strip.className).not.toMatch(/\bborder/);
-        expect(block.firstElementChild).toBe(handleRow);
       }
       cleanup();
     }

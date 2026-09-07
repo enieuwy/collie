@@ -22,11 +22,15 @@ import { KeyRail } from "@/components/key-rail";
 import { DisplayPrefsContent } from "@/components/display-prefs";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Collapse } from "@/components/ui/collapse";
+import { SpaceAgentsRow } from "@/components/space-agents-row";
 import * as api from "@/lib/api";
 import { describeApiError, describeThrownError } from "@/lib/api-error-message";
 import { useMuxCapability, useMuxUnsupportedKeys } from "@/lib/mux-capability";
 import { useOperatorCommands, useOperatorKeys, useOperatorQuickReplies } from "@/lib/operator-config";
 import { ctrlPresetsFor } from "@/lib/operator-keys";
+import { commandsFor } from "@/lib/agent-commands";
+import { quickRepliesFor } from "@/lib/quick-replies";
+import type { AgentView } from "@/lib/types";
 import { isDestructiveInput } from "@/lib/destructive";
 import { HostChip } from "@/components/host-chip";
 import { useAmbientHost, useHostLabel } from "@/components/pack-provider";
@@ -46,8 +50,6 @@ import { NoEchoNotice } from "@/components/no-echo-notice";
 export interface ComposerHandle {
   /** Focus the input and put the caret at the end — used by the mirror-tap-to-focus in AgentChat. */
   focusInput: () => void;
-  /** Toggle the in-flow agent palette — the agents row's pin, via AgentChat's ref. */
-  openCommands: () => void;
 }
 
 interface ComposerProps {
@@ -106,8 +108,19 @@ interface ComposerProps {
   setTapToFocus: (tapToFocus: boolean) => void;
   /** Snap the mirror to the live tail (follow + revalidate + scroll) after a successful send. */
   onSent: () => void;
-  /** Reports every drawer transition (the agents row stands down while Keys is open). */
-  onDrawerChange?: (drawer: ComposerDrawer) => void;
+  /** This space's agents, in stable order — the session row docked between the dock site
+   *  and the rail, so an opening panel never moves it. */
+  spaceAgents: readonly AgentView[];
+  /** Switch straight to a tapped session (the parent navigates; same-pane taps no-op there). */
+  onSelectPane: (paneId: string) => void;
+  /** Open the full switcher sheet (up-pill and row swipe-up). */
+  onOpenSwitcher: () => void;
+  /** Open a held session's options (rename, close). */
+  onHoldPane: (pane: AgentView) => void;
+  /** Connection not live: the row's dots show the last snapshot dimmed. */
+  rowStale?: boolean;
+  /** Whether the space holds anything worth switching to (panes or launchers). */
+  rowVisible: boolean;
 }
 
 // The composer cluster at the bottom of the pane view — everything a phone keyboard can't do on its
@@ -115,8 +128,8 @@ interface ComposerProps {
 // reply Send (with a destructive-command two-tap guard). The Display dock still renders below
 // but has no entry since the Controls row went away — restoring an entry re-arms it, deleting
 // the block finishes the job. The one-tap replies moved into the slash-command palette as its
-// quick section; the palette's entry is the agents row's /Agents button (it opens through the
-// ref, `openCommands`). Its state (draft,
+// quick section; the palette's entry is the agents row's pin, toggling the "cmd" drawer from
+// inside. Its state (draft,
 // sending, upload, pending preview, its own Keys sheets) is entirely local; it reaches AgentChat
 // only through `onSent` (to re-follow the tail) and exposes `focusInput` so the mirror tap can
 // bring up the keyboard.
@@ -203,7 +216,7 @@ function ComposerDock({
   );
 }
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
-  { paneId, scope, agent, isShell, gone, readOnly, hostBlock, composing, dialogPresent, text, terminalDraft, rawTerminalDraft, prefs, setWrap, stepFontSize, setRawTerminal, setTapToFocus, onSent, onDrawerChange },
+  { paneId, scope, agent, isShell, gone, readOnly, hostBlock, composing, dialogPresent, text, terminalDraft, rawTerminalDraft, prefs, setWrap, stepFontSize, setRawTerminal, setTapToFocus, onSent, spaceAgents, onSelectPane, onOpenSwitcher, onHoldPane, rowStale, rowVisible },
   ref,
 ) {
   const revalidator = useRevalidator();
@@ -331,14 +344,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const [previewLatched, setPreviewLatched] = useState(false);
   // Composer sheets are mutually exclusive — at most one open (Keys / Agent / Display).
   const [drawer, setDrawer] = useState<ComposerDrawer>(null);
-  // The agents row stands down while the Keys dock is open — the parent owns that row, so
-  // every transition is reported out. A changing callback identity re-fires this; callers
-  // pass a stable one (or a setState fn) so it only runs on real transitions.
-  useEffect(() => {
-    onDrawerChange?.(drawer);
-  }, [drawer, onDrawerChange]);
-  // Keys staged in the (unmounted-on-close) NavTray, pushed up so leaving the Keys dock can guard a
-  // composed sequence. See requestDrawer.
   const [queuedKeys, setQueuedKeys] = useState(0);
   // Two-tap guard for discarding that sequence. Separate from sendConfirm so an armed "Really send?"
   // and an armed discard can't clobber each other.
@@ -554,17 +559,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   // effectiveStable gates the preview's APPEARANCE (stabilised value); effectiveRaw is the live line
   // its text tracks and that the send()-time pre-clear sweeps.
   const effectiveStable = suppressEcho(terminalDraft);
-  // The agents row's /Agents button opens the palette through the ref above. Assigned during
-  // render like `lockedRef`: the imperative handle is created once, and a bare closure over
-  // `requestDrawer` there would keep the FIRST render's drawer and queue — opening the palette
-  // over an armed Keys queue without its discard confirm.
-  const openCommandsRef = useRef<() => void>(() => {});
-  openCommandsRef.current = () => requestDrawer(drawer === "cmd" ? null : "cmd");
-  useImperativeHandle(
-    ref,
-    () => ({ focusInput: focusInputImmediately, openCommands: () => openCommandsRef.current() }),
-    [],
-  );
+  useImperativeHandle(ref, () => ({ focusInput: focusInputImmediately }), []);
   const effectiveRaw = suppressEcho(rawTerminalDraft);
 
   useEffect(
@@ -652,6 +647,11 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   // The operator's own reply groups, resolved the same way — the palette renders them above the
   // commands under the same replace rule (ADR 0018).
   const operatorReplies = useOperatorQuickReplies();
+  // The agents row's pin gate, on the palette's own inputs so the two stay identical — a pane
+  // whose rows all miss it still keeps y/n replies, so the pin stays for those too.
+  const commandsAvailable =
+    commandsFor(agent, operatorCommands).length > 0 ||
+    quickRepliesFor(agent, isShell, operatorReplies).some((g) => g.items.length > 0);
   // The Keys tray's preset row, resolved the same way from the same one-shot read of /api/config.
   const keyPresets = ctrlPresetsFor(agent, useOperatorKeys());
   // Empty on every adapter that refuses nothing, and empty for Herdr's six as far as this tray is
@@ -1068,6 +1068,24 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             />
           </ComposerDock>
         )}
+        {/* The agents row, docked between the dock site and the rail: an opening panel grows
+            ABOVE it, so the row — pin included — never moves under the thumb (DESIGN.md §2).
+            Same stand-down rules as before it moved: keyboard up or Keys dock open hides it,
+            and `Collapse` unmounts it at the end of the exit so it leaves the tab order. */}
+        <Collapse open={!composing && drawer !== "keys" && rowVisible}>
+          <SpaceAgentsRow
+            agents={spaceAgents}
+            currentPaneId={paneId}
+            onSelect={onSelectPane}
+            onOpenSwitcher={onOpenSwitcher}
+            onHoldPane={onHoldPane}
+            stale={rowStale}
+            onOpenCommands={() => requestDrawer(drawer === "cmd" ? null : "cmd")}
+            pinOpen={drawer === "cmd"}
+            commandsAvailable={commandsAvailable}
+            commandsDisabled={locked}
+          />
+        </Collapse>
         {/* The fixed key rail: Termius's single quick-picker row, always on, no dock open. Esc, Tab,
             ⇧Tab, the arrows and ^C are the keys a phone keyboard cannot send; the pinned pad button
             toggles the full dock. It spends one row on every pane to save a tap on every menu — that

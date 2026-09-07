@@ -37,9 +37,8 @@ import { splitLines } from "@/lib/blocks";
 import { adapterFor } from "@/lib/harness";
 import { blockOwnsKeyboard } from "@/lib/harness/dialog-contract";
 import { FindBar } from "@/components/find-bar";
-import { Composer, type ComposerDrawer, type ComposerHandle } from "@/components/composer";
+import { Composer, type ComposerHandle } from "@/components/composer";
 import { ThreadSidebar } from "@/components/agent-sidebar";
-import { SpaceAgentsRow } from "@/components/space-agents-row";
 import { AgentIcon } from "@/components/agent-icon";
 import { PaneActionsSheet } from "@/components/pane-actions-sheet";
 import { CompactStripLabels } from "@/components/ui/labelled-strip";
@@ -58,12 +57,9 @@ import { submitMenuKeys } from "@/lib/menu-action";
 import type { PromptBlockAction } from "@/components/prompt-select-block";
 import type { PreviewBlockAction } from "@/components/preview-select-block";
 import type { MenuBlockAction } from "@/components/menu-block";
-import { commandsFor } from "@/lib/agent-commands";
-import { quickRepliesFor } from "@/lib/quick-replies";
 import { canGrowRequestedLines, growRequestedLines } from "@/lib/loaders";
 import { cwdBeyondName } from "@/lib/pane-name";
 import { useMuxCapability } from "@/lib/mux-capability";
-import { useOperatorCommands, useOperatorQuickReplies } from "@/lib/operator-config";
 import { hasJournalAdapter } from "@/lib/journal-agents";
 import { historyPath, spacePath } from "@/lib/nav";
 import { isReadOnly, statusLabel, type AgentView, type BridgeStatus, type DeviceAuth } from "@/lib/types";
@@ -118,8 +114,8 @@ type Drawer = "switcher" | "paneMenu" | null;
 //
 // This shell owns the pane frame: the header (the find bar takes it over while find is open), the
 // terminal mirror (freeze, find highlighting, load-older scrollback), and navigation (the nav hub +
-// swipe-up switcher). The composer cluster — draft, send, keys, quick actions, slash-commands, image
-// upload, display prefs, and the find-in-output trigger — lives in <Composer>; it reaches back here
+// swipe-up switcher). The composer cluster — draft, send, keys, the agents row, slash-commands,
+// image upload, display prefs, and the find-in-output trigger — lives in <Composer>; it reaches back
 // only to re-follow the tail after a send, focus on a mirror tap, and open find (which freezes the tail).
 export function AgentChat({
   paneId,
@@ -362,30 +358,6 @@ export function AgentChat({
   const composerRef = useRef<ComposerHandle>(null);
 
   const gone = !agent;
-  // The agents row's /Agents button needs Composer's two answers — is there anything to pick,
-  // and may this device write. `commandsFor`/`quickRepliesFor` run on the palette's own inputs
-  // so the gate is identical; the lock is Composer's `locked` recomputed up here, because the
-  // button lives up here. One expression in two places — keep in step.
-  const operatorCommands = useOperatorCommands();
-  const operatorReplies = useOperatorQuickReplies();
-  const rowCanType = useMuxCapability("typeText");
-  const rowCanSendKeys = useMuxCapability("sendKeys");
-  const rowMissingSend = !rowCanType.capable ? rowCanType : !rowCanSendKeys.capable ? rowCanSendKeys : null;
-  const commandsAvailable =
-    commandsFor(agent?.agent, operatorCommands).length > 0 ||
-    quickRepliesFor(agent?.agent, isShell, operatorReplies).some((g) => g.items.length > 0);
-  const commandsLocked = gone || readOnly || hostBlock !== undefined || rowMissingSend !== null;
-  const openCommands = useCallback(() => composerRef.current?.openCommands(), []);
-  // The agents row stands down while the Keys dock is open — driving keys wants the mirror,
-  // not a session switcher. The pin morphs while the palette stands. Stable callback so the
-  // composer's report effect only runs on real drawer transitions.
-  const [keysOpen, setKeysOpen] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  const handleDrawerChange = useCallback((drawer: ComposerDrawer) => {
-    setKeysOpen(drawer === "keys");
-    setPaletteOpen(drawer === "cmd");
-  }, []);
-
   // ── COMPOSING MODE — read ONCE, here, for the whole pane ──────────────────────
   // The soft keyboard takes roughly 45% of a phone. What is left has to hold the header, the tab
   // strip, the agent's statusline, the grab handle, the controls row and the draft
@@ -1508,40 +1480,9 @@ export function AgentChat({
                 )}
               </Collapse>
 
-              {/* The agents row: a horizontally scrollable run of this space's agent session
-                  titles under a centred up-pill opening the full switcher sheet. It stands where
-                  the tap handle stood — directly above the composer, below the agent's statusline —
-                  and that order is the same fix: a control the thumb reaches for by muscle memory
-                  may not move because the terminal printed something (DESIGN.md §2). The statusline
-                  stays the mirror's own last row, cut from the pane tail.
-
-                  It stands down while the keyboard is up: switching sessions is a BEFORE-typing
-                  act, so the row costs its height at the one moment it cannot be wanted. Same
-                  while the Keys dock is open — driving keys wants the mirror, not a switcher.
-                  The sheet stays reachable the instant the keyboard closes, and `Collapse`
-                  unmounts the row at the end of the exit so it leaves the tab order with the pixels. */}
+              {/* Chrome block: the seam and ground for everything the thumb operates. The
+                  agents row lives inside the Composer now, below the dock site. */}
               <div data-slot="chrome-block" className="border-t border-rule bg-chrome">
-                <Collapse
-                  open={
-                    !composing &&
-                    !keysOpen &&
-                    (agents.length + shellPanes.length > 0 || launchers.length > 0)
-                  }
-                >
-                  <SpaceAgentsRow
-                    agents={spaceAgents}
-                    currentPaneId={paneId}
-                    onSelect={switchTo}
-                    onOpenSwitcher={() => setDrawer("switcher")}
-                    onHoldPane={setHeldPane}
-                    stale={connecting}
-                    onOpenCommands={openCommands}
-                    pinOpen={paletteOpen}
-                    commandsAvailable={commandsAvailable}
-                    commandsDisabled={commandsLocked}
-                  />
-                </Collapse>
-
                 <Composer
                   ref={composerRef}
                   paneId={paneId}
@@ -1566,7 +1507,12 @@ export function AgentChat({
                   setRawTerminal={setRawTerminal}
                   setTapToFocus={setTapToFocus}
                   onSent={onSent}
-                  onDrawerChange={handleDrawerChange}
+                  spaceAgents={spaceAgents}
+                  onSelectPane={switchTo}
+                  onOpenSwitcher={() => setDrawer("switcher")}
+                  onHoldPane={setHeldPane}
+                  rowStale={connecting}
+                  rowVisible={agents.length + shellPanes.length > 0 || launchers.length > 0}
                 />
               </div>
             </div>

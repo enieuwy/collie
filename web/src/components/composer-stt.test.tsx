@@ -92,6 +92,11 @@ function baseProps(
     setRawTerminal: vi.fn(),
     setTapToFocus: vi.fn(),
     onSent: vi.fn(),
+    spaceAgents: [],
+    onSelectPane: vi.fn(),
+    onOpenSwitcher: vi.fn(),
+    onHoldPane: vi.fn(),
+    rowVisible: false,
     ...overrides,
   };
 }
