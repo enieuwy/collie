@@ -428,7 +428,6 @@ export const zhTW: Dictionary = {
   // --- commands (agent command palette) ---
   "commands.title": "Agent 指令",
   "commands.quickReplies.title": "快速回覆",
-  "commands.confirm": "確認？",
 
   // --- quickActions (one-tap reply dock) ---
   "quickActions.group.confirm": "確認",

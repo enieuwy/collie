@@ -450,7 +450,6 @@ export const de: Dictionary = {
   // --- commands (agent command palette) ---
   "commands.title": "Agent-Befehle",
   "commands.quickReplies.title": "Schnelle Antworten",
-  "commands.confirm": "Bestätigen",
 
   // --- quickActions (one-tap reply dock) ---
   "quickActions.group.confirm": "Bestätigen",

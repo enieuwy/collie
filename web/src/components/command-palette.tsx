@@ -26,9 +26,10 @@ interface CommandPaletteProps {
   onSubmit: (text: string) => void;
 }
 
-// One row shape for the command list. Module-level so it is not a fresh component type each
-// render (which would remount the list).
-function PaletteRow({
+// One chip shape for the command flow. Replies stay visually apart (solid fill, own header)
+// while commands run outlined beneath with none. Module-level so it is not a fresh component
+// type each render (which would remount the flow).
+function CommandChip({
   c,
   isPending,
   onPick,
@@ -42,27 +43,18 @@ function PaletteRow({
       type="button"
       onClick={() => onPick(c)}
       className={cn(
-        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors active:scale-[0.99]",
-        isPending ? "bg-destructive/10" : "hover:bg-accent",
+        "flex h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3 font-mono text-sm font-semibold transition-transform active:scale-[0.97]",
+        // A pending dangerous confirm has no room for words on a chip — the red fill IS the
+        // question, and the second tap answers it. Same two-tap behind it as ever.
+        isPending
+          ? "border-destructive/40 bg-destructive/10 text-destructive"
+          : "border-input text-foreground",
       )}
     >
-      <span
-        className={cn(
-          "shrink-0 font-mono text-sm font-semibold",
-          c.dangerous ? "text-destructive" : "text-foreground",
-        )}
-      >
-        {c.command}
-      </span>
-      {c.takesArg && (
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{c.argHint}</span>
+      {c.command}
+      {c.takesArg && !isPending && (
+        <Pencil className="size-3.5 shrink-0 text-muted-foreground" />
       )}
-      <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{c.description}</span>
-      {isPending ? (
-        <span className="shrink-0 text-xs font-medium text-destructive">{t("commands.confirm")}</span>
-      ) : c.takesArg ? (
-        <Pencil className="size-4 shrink-0 text-muted-foreground" />
-      ) : null}
     </button>
   );
 }
@@ -137,9 +129,9 @@ export function CommandPalette({
         </>
       )}
 
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap gap-1.5">
         {list.map((c) => (
-          <PaletteRow key={c.command} c={c} isPending={pending === c.command} onPick={pick} />
+          <CommandChip key={c.command} c={c} isPending={pending === c.command} onPick={pick} />
         ))}
       </div>
     </BottomSheet>

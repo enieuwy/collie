@@ -57,10 +57,11 @@ describe("CommandPalette", () => {
     const user = userEvent.setup();
     const props = setup();
 
-    // /clear is dangerous + no-arg. First tap arms confirm, does not submit.
+    // /clear is dangerous + no-arg. First tap arms confirm, does not submit — the chip
+    // itself turns red, since a chip has no room for words.
     await user.click(screen.getByText("/clear"));
     expect(props.onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByText("Confirm?")).toBeInTheDocument();
+    expect(screen.getByText("/clear").className).toMatch(/bg-destructive\/10/);
 
     // Second tap submits and closes.
     await user.click(screen.getByText("/clear"));
@@ -113,9 +114,9 @@ describe("CommandPalette", () => {
         { agent: "omp", command: "/deploy", description: "On omp", takesArg: false, argHint: "" },
       ],
     });
-    // getAllByText, not getByText: two rows would also mean two children under one React key.
+    // getAllByText, not getByText: two chips would also mean two children under one React key.
+    // Chips show no description, so the single chip is the whole assertion.
     expect(screen.getAllByText("/deploy")).toHaveLength(1);
-    expect(screen.getByText("On omp")).toBeInTheDocument();
   });
 
   it("shows the operator's rows INSTEAD of the shipped catalog", () => {
@@ -138,10 +139,10 @@ describe("CommandPalette", () => {
         { agent: "omp", command: "/new", description: "Fresh start", takesArg: false, argHint: "" },
       ],
     });
-    await user.click(screen.getByText("Fresh start"));
+    await user.click(screen.getByText("/new"));
     expect(props.onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByText("Confirm?")).toBeInTheDocument();
-    await user.click(screen.getByText("Fresh start"));
+    expect(screen.getByText("/new").className).toMatch(/bg-destructive\/10/);
+    await user.click(screen.getByText("/new"));
     expect(props.onSubmit).toHaveBeenCalledExactlyOnceWith("/new");
   });
 
@@ -161,10 +162,10 @@ describe("CommandPalette", () => {
       ],
     });
     // Same two-tap a shipped dangerous command gets — the operator's own brake, on their own row.
-    await user.click(screen.getByText("Deploy staging"));
+    await user.click(screen.getByText("/deploy"));
     expect(props.onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByText("Confirm?")).toBeInTheDocument();
-    await user.click(screen.getByText("Deploy staging"));
+    expect(screen.getByText("/deploy").className).toMatch(/bg-destructive\/10/);
+    await user.click(screen.getByText("/deploy"));
     expect(props.onSubmit).toHaveBeenCalledExactlyOnceWith("/deploy");
   });
 
@@ -179,8 +180,7 @@ describe("CommandPalette", () => {
     expect(props.onClose).toHaveBeenCalledOnce();
     expect(props.onInsert).not.toHaveBeenCalled();
   });
-
-  it("renders quick replies as chips ahead of the command rows", () => {
+  it("renders quick reply chips ahead of the command chips", () => {
     setup();
     const yes = screen.getByText("yes");
     const status = screen.getByText("/status");
