@@ -845,10 +845,9 @@ describe("AgentChat — space agents row", () => {
   it("stands the agents row down while the Keys dock is open — snap out, glide back", async () => {
     // Driving keys wants the mirror, not a session switcher. The row SNAPS out in the opening
     // commit (no waitFor below: a gliding row would still be mounted here, held by its Collapse
-    // for 240ms) so the dock's own glide is the only motion. The dock SNAPS shut the same way —
-    // a gliding exit underlaps the row's return and the bottom edge reverses, which reads as
-    // overshoot — so the dock is already gone right after the close tap while the row glides
-    // straight back under it.
+    // for 240ms) so the dock's own glide is the only motion. The close glides BOTH ways at once —
+    // dock shutting, row returning on the same curve — so the bottom edge moves one way only
+    // instead of reversing into overshoot.
     const user = userEvent.setup();
     renderRow();
     expect(document.querySelector('[data-slot="space-agents"]')).toBeInTheDocument();
@@ -858,7 +857,10 @@ describe("AgentChat — space agents row", () => {
     await user.click(pad);
     expect(document.querySelector('[data-slot="space-agents"]')).toBeNull();
     await user.click(pad);
-    expect(document.getElementById("dock-keys")).toBeNull();
+    // Both mid-glide: the dock held through its exit, the row already on its way back.
+    expect(document.getElementById("dock-keys")).not.toBeNull();
+    expect(document.querySelector('[data-slot="space-agents"]')).not.toBeNull();
+    await waitFor(() => expect(document.getElementById("dock-keys")).toBeNull());
     await waitFor(() =>
       expect(document.querySelector('[data-slot="space-agents"]')).toBeInTheDocument(),
     );

@@ -21,7 +21,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { KeyRail } from "@/components/key-rail";
 import { DisplayPrefsContent } from "@/components/display-prefs";
 import { SectionLabel } from "@/components/ui/section-label";
-import { Collapse, COLLAPSE_MS } from "@/components/ui/collapse";
+import { Collapse } from "@/components/ui/collapse";
 import { SpaceAgentsRow } from "@/components/space-agents-row";
 import * as api from "@/lib/api";
 import { describeApiError, describeThrownError } from "@/lib/api-error-message";
@@ -351,16 +351,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   // when the exit has not finished gliding.
   const [drawerSession, setDrawerSession] = useState(0);
   const [queuedKeys, setQueuedKeys] = useState(0);
-  // A LAGGED drawer, for the dock site's close-snap. In the closing commit `drawer` is already
-  // null — indistinguishable from stably shut — while the lag still says "keys", which is exactly
-  // the edge that must snap instead of glide (see the site above). Set in the transition choke
-  // below (not an effect), so the lag is in place in the closing commit itself. The timer only
-  // releases it; nothing reads the lag except that one `instant` prop.
-  const [drawerLag, setDrawerLag] = useState<ComposerDrawer>(null);
-  const lagTimer = useRef<number | null>(null);
-  useEffect(() => () => {
-    if (lagTimer.current !== null) window.clearTimeout(lagTimer.current);
-  }, []);
   // Two-tap guard for discarding that sequence. Separate from sendConfirm so an armed "Really send?"
   // and an armed discard can't clobber each other.
   const discardConfirm = usePendingConfirm();
@@ -386,15 +376,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     // A new opening gets a new session even when the last exit is still gliding — the session
     // key on each dock below turns the reopen into a remount, not a resurrection.
     if (next !== null && next !== drawer) setDrawerSession((s) => s + 1);
-    if (drawer === "keys" && next !== "keys") {
-      // Leaving Keys: the lag stays behind for exactly the exit glide (see drawerLag above).
-      window.clearTimeout(lagTimer.current ?? undefined);
-      lagTimer.current = window.setTimeout(() => setDrawerLag(next), COLLAPSE_MS);
-    } else {
-      window.clearTimeout(lagTimer.current ?? undefined);
-      lagTimer.current = null;
-      setDrawerLag(next);
-    }
     setDrawer(next);
   }
   const closeDrawer = () => requestDrawer(null);
@@ -1043,15 +1024,11 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             the labelled mirror prefs. Keys has an entry (the rail pad) and Agent has one (the
             agents row's pin, through the ref) — Display renders for a drawer value nothing sets
             anymore. */}
-        <Collapse
-          open={drawer !== null}
-          // Snap shut, glide open. A gliding exit underlaps the row's return — sequential or
-          // simultaneous, the bottom edge reverses (up with the dock, down with the row) and
-          // reads as overshoot. The snap lands in the closing commit (drawer null while the lag
-          // below still says keys); the row glides straight back under it. Openings keep the
-          // glide: mounting fresh tray content mid-glide is the one motion, nothing to reverse.
-          instant={drawer === null && drawerLag !== null}
-        >
+        <Collapse open={drawer !== null}>
+        {/* One glide both ways. The row snaps out on opening (see below) so the open has a single
+        motion; on closing the row glides back ALONGSIDE the dock — the edge stays monotonic
+        (250px of dock against 28px of row, same curve, same commit) instead of reversing, which
+        is what read as overshoot. */}
         {drawer === "keys" && (
           <ComposerDock
             // Session key: a reopen during the exit glide remounts instead of reconciling onto
@@ -1120,11 +1097,11 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             and `Collapse` unmounts it at the end of the exit so it leaves the tab order. */}
         <Collapse
           open={!composing && drawer !== "keys" && rowVisible}
-          // Snap out while the Keys dock opens, glide back when it shuts. The snap keeps the
-          // opening to one moving box (the row vanishing in glide alongside the dock read as a
-          // bounce against a live-wrapping mirror); the dock snaps shut itself on the way out
-          // (see the site above), so the row can glide straight back under it with nothing to
-          // reverse against. Keyboard/composing edges still glide both ways.
+          // Snap out while the Keys dock opens, glide back alongside it shutting. The opening snap
+          // keeps the open to one moving box (the row vanishing in glide alongside the dock read
+          // as a bounce against a live-wrapping mirror). The close stays simultaneous — 250px of
+          // dock against 28px of row on the same curve — so the bottom edge moves one way only.
+          // Keyboard/composing edges still glide both ways.
           instant={drawer === "keys"}
           // Bleed to the chrome edges: the footer wears px-3, and without this the row —
           // pin included — parks 12px off the glass it used to sit flush on.
