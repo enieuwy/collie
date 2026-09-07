@@ -1,9 +1,8 @@
 import { useEffect } from "react";
-import { CornerDownLeft, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { BottomSheet } from "@/components/ui/sheet";
-import { AgentIcon } from "@/components/agent-icon";
 import { usePendingConfirm } from "@/hooks/use-pending-confirm";
 import { commandsFor, type AgentCommand } from "@/lib/agent-commands";
 import { quickRepliesFor } from "@/lib/quick-replies";
@@ -43,33 +42,27 @@ function PaletteRow({
       type="button"
       onClick={() => onPick(c)}
       className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
+        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors active:scale-[0.99]",
         isPending ? "bg-destructive/10" : "hover:bg-accent",
       )}
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span
-            className={cn(
-              "font-mono text-sm font-semibold",
-              c.dangerous ? "text-destructive" : "text-foreground",
-            )}
-          >
-            {c.command}
-          </span>
-          {c.takesArg && (
-            <span className="font-mono text-[11px] text-muted-foreground">{c.argHint}</span>
-          )}
-        </div>
-        <p className="truncate text-xs text-muted-foreground">{c.description}</p>
-      </div>
+      <span
+        className={cn(
+          "shrink-0 font-mono text-sm font-semibold",
+          c.dangerous ? "text-destructive" : "text-foreground",
+        )}
+      >
+        {c.command}
+      </span>
+      {c.takesArg && (
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{c.argHint}</span>
+      )}
+      <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{c.description}</span>
       {isPending ? (
         <span className="shrink-0 text-xs font-medium text-destructive">{t("commands.confirm")}</span>
       ) : c.takesArg ? (
         <Pencil className="size-4 shrink-0 text-muted-foreground" />
-      ) : (
-        <CornerDownLeft className="size-4 shrink-0 text-muted-foreground" />
-      )}
+      ) : null}
     </button>
   );
 }
@@ -124,12 +117,6 @@ export function CommandPalette({
 
   return (
     <BottomSheet open={open} onClose={onClose} title={t("commands.title")} className="max-h-[85dvh]">
-      {agent && (
-        <div className="mb-3 flex items-center gap-2">
-          <AgentIcon agent={agent} className="size-6" />
-          <span className="text-sm font-medium">{agent}</span>
-        </div>
-      )}
       {replies.length > 0 && (
         <>
           <p className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
