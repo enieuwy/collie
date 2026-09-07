@@ -431,7 +431,6 @@ export const zh: Dictionary = {
 
   // --- commands (agent command palette) ---
   "commands.title": "Agent 命令",
-  "commands.quickReplies.title": "快速回复",
 
   // --- quickActions (one-tap reply dock) ---
   "quickActions.group.confirm": "确认",

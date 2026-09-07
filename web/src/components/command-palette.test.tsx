@@ -62,6 +62,8 @@ describe("CommandPalette", () => {
     await user.click(screen.getByText("/clear"));
     expect(props.onSubmit).not.toHaveBeenCalled();
     expect(screen.getByText("/clear").className).toMatch(/bg-destructive\/10/);
+    // No words fit on the chip, so the pending state speaks through the accessible name.
+    expect(screen.getByRole("button", { name: "Tap again to confirm /clear" })).toBeInTheDocument();
 
     // Second tap submits and closes.
     await user.click(screen.getByText("/clear"));
@@ -74,8 +76,9 @@ describe("CommandPalette", () => {
     // shared agent set, so the sheet is never empty for lack of a catalog.
     setup({ agent: "gemini" });
     expect(screen.queryByText("/status")).toBeNull();
-    expect(screen.getByText("Quick replies")).toBeInTheDocument();
+    // No header names them — solid fill against outlined commands is the whole distinction.
     expect(screen.getByText("yes")).toBeInTheDocument();
+    expect(screen.getByText("no")).toBeInTheDocument();
   });
 
   it("shows one of the operator's own commands on the first screen and submits it", async () => {
@@ -172,7 +175,6 @@ describe("CommandPalette", () => {
   it("shows the shipped quick replies above the commands and submits one on tap", async () => {
     const user = userEvent.setup();
     const props = setup();
-    expect(screen.getByText("Quick replies")).toBeInTheDocument();
     expect(screen.getByText("yes")).toBeInTheDocument();
     expect(screen.getByText("continue")).toBeInTheDocument();
     await user.click(screen.getByText("yes"));

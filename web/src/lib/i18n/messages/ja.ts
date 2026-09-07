@@ -444,7 +444,6 @@ export const ja: Dictionary = {
 
   // --- commands (agent command palette) ---
   "commands.title": "エージェントコマンド",
-  "commands.quickReplies.title": "クイック返信",
 
   // --- quickActions (one-tap reply dock) ---
   "quickActions.group.confirm": "確認",

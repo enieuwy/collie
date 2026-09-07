@@ -442,7 +442,6 @@ export const ko: Dictionary = {
 
   // --- commands (agent command palette) ---
   "commands.title": "에이전트 명령",
-  "commands.quickReplies.title": "빠른 답장",
 
   // --- quickActions (one-tap reply dock) ---
   "quickActions.group.confirm": "확인",

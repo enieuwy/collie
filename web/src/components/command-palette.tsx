@@ -42,6 +42,7 @@ function CommandChip({
     <button
       type="button"
       onClick={() => onPick(c)}
+      aria-label={isPending ? `Tap again to confirm ${c.command}` : undefined}
       className={cn(
         "flex h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3 font-mono text-sm font-semibold transition-transform active:scale-[0.97]",
         // A pending dangerous confirm has no room for words on a chip — the red fill IS the
@@ -110,23 +111,18 @@ export function CommandPalette({
   return (
     <BottomSheet open={open} onClose={onClose} title={t("commands.title")} className="max-h-[85dvh]">
       {replies.length > 0 && (
-        <>
-          <p className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-            {t("commands.quickReplies.title")}
-          </p>
-          <div className="mb-3 flex flex-wrap gap-1.5">
-            {replies.map((item, i) => (
-              <button
-                key={`reply:${i}`}
-                type="button"
-                onClick={() => pickReply(item)}
-                className="h-11 shrink-0 rounded-lg bg-muted px-4 font-mono text-sm font-semibold text-foreground transition-transform active:scale-[0.97]"
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-        </>
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {replies.map((item, i) => (
+            <button
+              key={`reply:${i}`}
+              type="button"
+              onClick={() => pickReply(item)}
+              className="h-11 shrink-0 rounded-lg bg-muted px-4 font-mono text-sm font-semibold text-foreground transition-transform active:scale-[0.97]"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
       )}
 
       <div className="flex flex-wrap gap-1.5">

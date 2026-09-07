@@ -463,7 +463,6 @@ export const en = {
 
   // --- commands (agent command palette) ---
   "commands.title": "Agent commands",
-  "commands.quickReplies.title": "Quick replies",
   // --- quickActions (one-tap reply dock) ---
   "quickActions.group.confirm": "confirm",
   "quickActions.group.common": "common",
