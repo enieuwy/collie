@@ -344,6 +344,12 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const [previewLatched, setPreviewLatched] = useState(false);
   // Composer sheets are mutually exclusive — at most one open (Keys / Agent / Display).
   const [drawer, setDrawer] = useState<ComposerDrawer>(null);
+  // Which opening this is. A reopen during the shared Collapse's 240ms exit would otherwise
+  // reconcile onto the still-mounted (held) dock and inherit its state — the discarded key queue
+  // coming back to life, re-arming the guard on keys the operator already threw away. A new key
+  // per opening forces a real unmount/remount, so closing a dock still destroys its state even
+  // when the exit has not finished gliding.
+  const [drawerSession, setDrawerSession] = useState(0);
   const [queuedKeys, setQueuedKeys] = useState(0);
   // Two-tap guard for discarding that sequence. Separate from sendConfirm so an armed "Really send?"
   // and an armed discard can't clobber each other.
@@ -367,6 +373,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       return;
     }
     discardConfirm.reset();
+    // A new opening gets a new session even when the last exit is still gliding — the session
+    // key on each dock below turns the reopen into a remount, not a resurrection.
+    if (next !== null && next !== drawer) setDrawerSession((s) => s + 1);
     setDrawer(next);
   }
   const closeDrawer = () => requestDrawer(null);
@@ -1015,8 +1024,17 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             the labelled mirror prefs. Keys has an entry (the rail pad) and Agent has one (the
             agents row's pin, through the ref) — Display renders for a drawer value nothing sets
             anymore. */}
+        {/* One shared expander for every drawer — keys, agent, display. Each branch used to
+        mount bare: the agent panel popped in instantly while the keys panel arrived with the
+        row standing down beside it, which read as a bounce. Now all three ride the same
+        0fr↔1fr drawer motion (240ms ease-out, instant under reduced motion), open and shut —
+        Collapse holds the last panel through the exit so the close glides too. */}
+        <Collapse open={drawer !== null}>
         {drawer === "keys" && (
           <ComposerDock
+            // Session key: a reopen during the exit glide remounts instead of reconciling onto
+            // the held dock (which would resurrect the discarded queue — see drawerSession).
+            key={`dock-keys-${drawerSession}`}
             id="dock-keys"
             title={translate("composer.controls.keys")}
             host={writeHost}
@@ -1039,6 +1057,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         )}
         {drawer === "cmd" && (
           <ComposerDock
+            key={`dock-cmd-${drawerSession}`}
             id="dock-cmd"
             title={translate("commands.title")}
             // Never a header: the pin morphs into the close control, and the input
@@ -1062,7 +1081,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           </ComposerDock>
         )}
         {drawer === "display" && (
-          <ComposerDock id="dock-display" title={translate("composer.controls.display")} onClose={closeDrawer}>
+          <ComposerDock key={`dock-display-${drawerSession}`} id="dock-display" title={translate("composer.controls.display")} onClose={closeDrawer}>
             <DisplayPrefsContent
               prefs={prefs}
               setWrap={setWrap}
@@ -1072,6 +1091,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             />
           </ComposerDock>
         )}
+        </Collapse>
         {/* The agents row, docked between the dock site and the rail: an opening panel grows
             ABOVE it, so the row — pin included — never moves under the thumb (DESIGN.md §2).
             Same stand-down rules as before it moved: keyboard up or Keys dock open hides it,

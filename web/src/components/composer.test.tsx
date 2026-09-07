@@ -90,6 +90,9 @@ function renderComposer(overrides: Partial<ComponentProps<typeof Composer>> = {}
  *  instead. Every dock test reads in lockstep, which is why the scope lives here rather than inline. */
 const keysDock = () => document.getElementById("dock-keys");
 const dockKey = (name: string) => within(keysDock()!).getByRole("button", { name });
+/** The dock site rides one shared Collapse, so a close glides shut for 240ms before the box
+ *  leaves the tree — absence after a close is always an `awaitDockShut`, never a bare read. */
+const awaitDockShut = () => waitFor(() => expect(keysDock()).toBeNull());
 /** The rail's pad — the dock's toggle. Named exactly like the tray's own Keys tab, so scope by
  *  `aria-expanded`, which only the toggle carries. */
 const padButton = () =>
@@ -1974,7 +1977,7 @@ describe("Composer — keys dock (in-flow, not an overlay)", () => {
     // Tapping Keys again closes the dock (single-valued drawer toggle).
     await user.click(keys);
     expect(keys).toHaveAttribute("aria-expanded", "false");
-    expect(keysDock()).toBeNull();
+    await awaitDockShut();
   });
 
   it("the rail pad turns into a close X while the dock stands, and the dock draws one border", async () => {
@@ -2008,7 +2011,7 @@ describe("Composer — keys dock (in-flow, not an overlay)", () => {
     expect(screen.queryByRole("button", { name: "Close Keys" })).toBeNull();
 
     await user.click(padButton());
-    expect(keysDock()).toBeNull();
+    await awaitDockShut();
   });
 
   it("a host brings the dock header back — the X still dismisses it", async () => {
@@ -2018,10 +2021,10 @@ describe("Composer — keys dock (in-flow, not an overlay)", () => {
     await user.click(screen.getByRole("button", { name: "Keys" }));
     // The header is back: title, the machine chip, and the X.
     await user.click(screen.getByRole("button", { name: "Close Keys" }));
-    expect(keysDock()).toBeNull();
+    await awaitDockShut();
   });
 
-  it("a downward fling on the dock closes it, like the sheets", () => {
+  it("a downward fling on the dock closes it, like the sheets", async () => {
     // The sheets' gesture on in-flow chrome. Fires on displacement, not velocity, so the
     // timer path needs no covering — use-swipe.test.ts pins the decision logic itself.
     renderComposer();
@@ -2034,7 +2037,7 @@ describe("Composer — keys dock (in-flow, not an overlay)", () => {
     fireEvent.touchStart(dock, { touches: [{ clientX: 200, clientY: 500 }] });
     fireEvent.touchEnd(dock, { changedTouches: [{ clientX: 203, clientY: 560 }] });
 
-    expect(keysDock()).toBeNull();
+    await awaitDockShut();
   });
 
   it("routes a docked key press through pane.send_keys", async () => {
@@ -2077,7 +2080,7 @@ describe("Composer — a composed key queue is guarded on the way out", () => {
     expect(screen.getByTestId("status")).toHaveTextContent(/discard 1 queued key/i);
 
     await user.click(padButton());
-    expect(keysDock()).toBeNull();
+    await awaitDockShut();
   });
 
   // The ✕ is not the only exit — the rail pad toggles the dock too, so the guard lives on the
@@ -2091,7 +2094,8 @@ describe("Composer — a composed key queue is guarded on the way out", () => {
     expect(screen.getByRole("button", { name: "Remove ⌃Tab" })).toBeInTheDocument();
 
     await user.click(padButton());
-    expect(screen.queryByRole("button", { name: "Remove ⌃Tab" })).not.toBeInTheDocument();
+    // The site glides shut before it unmounts, so the chip rides the exit out.
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Remove ⌃Tab" })).not.toBeInTheDocument());
   });
 
   // Over-guarding trains you to double-tap through the confirm reflexively, which kills its value
@@ -2104,7 +2108,7 @@ describe("Composer — a composed key queue is guarded on the way out", () => {
     await user.click(screen.getByRole("button", { name: "Ctrl" })); // armed, but nothing staged
     await user.click(padButton());
 
-    expect(keysDock()).toBeNull();
+    await awaitDockShut();
   });
 
   it("a clean Keys dock closes on the first tap", async () => {
@@ -2114,7 +2118,7 @@ describe("Composer — a composed key queue is guarded on the way out", () => {
     await user.click(screen.getByRole("button", { name: "Keys" }));
     await user.click(padButton());
 
-    expect(keysDock()).toBeNull();
+    await awaitDockShut();
   });
 
   // The count must not outlive the tray: a stale value would arm a phantom confirm on a later,
@@ -2129,7 +2133,7 @@ describe("Composer — a composed key queue is guarded on the way out", () => {
 
     await user.click(screen.getByRole("button", { name: "Keys" })); // reopen, empty
     await user.click(padButton());
-    expect(keysDock()).toBeNull();
+    await awaitDockShut();
   });
 });
 
