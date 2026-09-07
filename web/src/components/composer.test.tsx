@@ -1938,6 +1938,25 @@ describe("Composer — keys dock (in-flow, not an overlay)", () => {
     expect(keysDock()).toBeNull();
   });
 
+  it("the rail pad turns into a close X while the dock stands, and the dock draws one border", async () => {
+    // The same tab opens and collapses, so its glyph says which: keyboard shut, X open. The
+    // dock draws no top border of its own — the chrome block above already draws one, and two
+    // stacked rules read as a double border with the agents row stood down.
+    const user = userEvent.setup();
+    renderComposer();
+    const pad = padButton();
+    expect(pad.querySelector("svg.lucide-keyboard")?.getAttribute("class")).toMatch(/opacity-100/);
+    expect(pad.querySelector("svg.lucide-x")?.getAttribute("class")).toMatch(/opacity-0/);
+
+    await user.click(pad);
+    expect(pad.querySelector("svg.lucide-keyboard")?.getAttribute("class")).toMatch(/opacity-0/);
+    expect(pad.querySelector("svg.lucide-x")?.getAttribute("class")).toMatch(/opacity-100/);
+    expect(keysDock()!.className).not.toMatch(/(?:^| )border-t(?: |$)/);
+
+    await user.click(pad);
+    expect(pad.querySelector("svg.lucide-keyboard")?.getAttribute("class")).toMatch(/opacity-100/);
+  });
+
   it("a solo install shows no dock header — the toggle closes it", async () => {
     const user = userEvent.setup();
     renderComposer();

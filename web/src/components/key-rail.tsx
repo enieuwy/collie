@@ -1,6 +1,7 @@
-import { Check, Keyboard } from "lucide-react";
+import { Check, Keyboard, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useActionEcho } from "@/hooks/use-action-echo";
 import { useLocale } from "@/hooks/use-locale";
 import { usePinSide } from "@/hooks/use-pin-side";
@@ -69,7 +70,23 @@ export function KeyRail({ onSend, unsupportedKeys, directActive, onOpenPad, padO
           : "h-8 shrink-0 touch-manipulation rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
       }
     >
-      <Keyboard className="size-4" />
+      {/* Open state reads as a close control: the keyboard glyph crossfades and shrinks into an
+      X while the dock stands, so the same tab that opened it visibly offers to collapse it.
+      `aria-expanded` already says as much to readers; this is the sighted half. */}
+      <span aria-hidden="true" className="relative block size-4">
+        <Keyboard
+          className={cn(
+            "absolute inset-0 size-4 transition-all duration-200 motion-reduce:transition-none",
+            padOpen ? "scale-50 opacity-0" : "scale-100 opacity-100",
+          )}
+        />
+        <X
+          className={cn(
+            "absolute inset-0 size-4 transition-all duration-200 motion-reduce:transition-none",
+            padOpen ? "scale-100 opacity-100" : "scale-50 opacity-0",
+          )}
+        />
+      </span>
     </Button>
   );
 

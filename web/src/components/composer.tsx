@@ -178,7 +178,7 @@ function ComposerDock({
     if ((bodyRef.current?.scrollTop ?? 0) <= 0) onClose();
   });
   return (
-    <div id={id} className="-mx-3 mb-2 flex flex-col border-t border-border bg-background" {...swipe}>
+    <div id={id} className="-mx-3 mb-2 flex flex-col bg-background" {...swipe}>
       {!bare && (
         <div className="flex items-center justify-between px-3 pt-2">
           <div className="flex min-w-0 items-center gap-2">
