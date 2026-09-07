@@ -20,7 +20,7 @@ vi.mock("@/lib/wizard-action", () => ({
 
 import { server } from "@/test/setup";
 import { clearStatus, setStatus } from "@/lib/status";
-import { setZenEnabled, __resetZen } from "@/lib/zen";
+import { setAutoZenEnabled, setZenEnabled, __resetZen } from "@/lib/zen";
 import { __resetStripsCollapsed } from "@/lib/strips-collapsed";
 import { __resetOperatorCommands } from "@/lib/operator-config";
 import { submitPromptOption } from "@/lib/prompt-action";
@@ -1807,6 +1807,19 @@ describe("AgentChat — zen mode", () => {
     });
 
     it("does nothing while the setting is off", async () => {
+      installOrientation(false);
+      const { container } = renderChat();
+
+      act(() => emitOrientation(true));
+      expect(headerRowOf(container)).not.toBeNull();
+      expect(screen.queryByRole("button", { name: "Exit zen mode" })).not.toBeInTheDocument();
+    });
+
+    it("does nothing on rotation while zen is available but the landscape sub-toggle is off", async () => {
+      // The two bits are independent: turning zen ON but its auto-landscape row OFF must leave
+      // rotation inert while the hand entry point (the actions sheet's row) still works normally.
+      setZenEnabled(true);
+      setAutoZenEnabled(false);
       installOrientation(false);
       const { container } = renderChat();
 

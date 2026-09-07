@@ -22,7 +22,7 @@ import { isConnecting } from "@/lib/connection";
 import { t } from "@/lib/i18n";
 import { setStatus } from "@/lib/status";
 import { setFollowing as publishFollowing, stampSend } from "@/lib/poll-intent";
-import { useZenEnabled } from "@/lib/zen";
+import { useAutoZenEnabled, useZenEnabled } from "@/lib/zen";
 import { ChatMessageList, type ChatMessageListHandle } from "@/components/ui/chat/chat-message-list";
 import { BottomSheet } from "@/components/ui/sheet";
 import { Collapse } from "@/components/ui/collapse";
@@ -323,22 +323,25 @@ export function AgentChat({
   // turning it back leaves. But only a zen this effect entered — a hand-entered zen (the actions
   // sheet's row, tapped in either orientation) is the operator's explicit choice and rotation must
   // not steal it, so `autoZen` marks the effect's own entry and the portrait exit fires only on a
-  // marked one. Gated on `zenAvailable` like the manual entry point, so the Settings toggle kills
-  // both paths; losing availability mid-zen exits a marked entry rather than stranding it. Entry
-  // goes through `enterZen`, never bare setZen, so the find bar, sheets and staged key queue clear
-  // exactly as they do on a manual entry.
+  // marked one. Gated on `autoZenActive` — BOTH the Settings availability toggle and its own
+  // landscape sub-toggle (lib/zen.ts) must be on — so either one going off kills both paths; losing
+  // it mid-zen exits a marked entry rather than stranding it. Entry goes through `enterZen`, never
+  // bare setZen, so the find bar, sheets and staged key queue clear exactly as they do on a manual
+  // entry.
   //
   // The effect fires on every one of its deps changing — including the `zen` change a hand exit
   // just made — so it acts ONLY on a flip (`wasLandscape`), never re-asserts. Without that, tapping
   // the floating way out in landscape would exit and instantly re-enter. The ref starts portrait so
   // mounting already sideways counts as a flip and opens chrome-free, matching a reload in hand.
   const landscape = useMediaQuery("(orientation: landscape)");
+  const autoZenSetting = useAutoZenEnabled();
+  const autoZenActive = zenAvailable && autoZenSetting;
   const autoZen = useRef(false);
   const wasLandscape = useRef(false);
   useEffect(() => {
     const flipped = landscape !== wasLandscape.current;
     wasLandscape.current = landscape;
-    if (!zenAvailable) {
+    if (!autoZenActive) {
       if (zen && autoZen.current) {
         autoZen.current = false;
         setZen(false);
@@ -353,7 +356,7 @@ export function AgentChat({
       autoZen.current = false;
       setZen(false);
     }
-  }, [landscape, zen, zenAvailable]);
+  }, [landscape, zen, autoZenActive]);
   const listRef = useRef<ChatMessageListHandle>(null);
   const composerRef = useRef<ComposerHandle>(null);
 

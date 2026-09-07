@@ -1,4 +1,4 @@
-import { __resetZen, setZenEnabled, zenEnabled } from "./zen";
+import { __resetZen, autoZenEnabled, setAutoZenEnabled, setZenEnabled, zenEnabled } from "./zen";
 
 // The store's whole job is to remember one bit across a reload, so the persistence contract is what
 // these pin: the default, the exact key, the "1"/"0" encoding, and that a hostile storage cannot
@@ -47,6 +47,46 @@ describe("zen", () => {
     // Losing persistence must not lose the setting for this session.
     expect(() => setZenEnabled(true)).not.toThrow();
     expect(zenEnabled()).toBe(true);
+    setItem.mockRestore();
+  });
+});
+
+// The auto-landscape bit: independent storage, opposite default (on, since the rotation mechanism
+// shipped unconditionally before this row existed — an inverted default here would silently take
+// the behaviour away from every operator already using it).
+describe("auto-zen (landscape)", () => {
+  beforeEach(() => __resetZen());
+  afterEach(() => __resetZen());
+
+  it("is on unless the operator turns it off", () => {
+    expect(autoZenEnabled()).toBe(true);
+  });
+
+  it("round-trips through the stored value, not just memory", () => {
+    setAutoZenEnabled(false);
+    expect(autoZenEnabled()).toBe(false);
+    expect(localStorage.getItem("collie:auto-zen-enabled:v1")).toBe("0");
+
+    setAutoZenEnabled(true);
+    expect(autoZenEnabled()).toBe(true);
+    expect(localStorage.getItem("collie:auto-zen-enabled:v1")).toBe("1");
+  });
+
+  it("__resetZen clears both tiers, independently of the main zen bit", () => {
+    setZenEnabled(true);
+    setAutoZenEnabled(false);
+    __resetZen();
+    expect(zenEnabled()).toBe(false);
+    expect(autoZenEnabled()).toBe(true);
+    expect(localStorage.getItem("collie:auto-zen-enabled:v1")).toBeNull();
+  });
+
+  it("survives a storage that throws on write (Safari private mode)", () => {
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    expect(() => setAutoZenEnabled(false)).not.toThrow();
+    expect(autoZenEnabled()).toBe(false);
     setItem.mockRestore();
   });
 });
