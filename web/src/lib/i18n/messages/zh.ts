@@ -432,9 +432,6 @@ export const zh: Dictionary = {
   // --- commands (agent command palette) ---
   "commands.title": "Agent 命令",
   "commands.quickReplies.title": "快速回复",
-  "commands.search.placeholder": "搜索 {count} 条命令…",
-  "commands.common.hint": "常用命令 · 输入以搜索全部 {count} 条",
-  "commands.empty": "未找到匹配“{query}”的命令。",
   "commands.confirm": "确认？",
 
   // --- quickActions (one-tap reply dock) ---

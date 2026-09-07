@@ -443,9 +443,6 @@ export const ko: Dictionary = {
   // --- commands (agent command palette) ---
   "commands.title": "에이전트 명령",
   "commands.quickReplies.title": "빠른 답장",
-  "commands.search.placeholder": "명령어 {count}개 검색…",
-  "commands.common.hint": "자주 쓰는 항목, 입력하여 전체 {count}개 검색",
-  "commands.empty": "“{query}”와 일치하는 명령어가 없습니다.",
   "commands.confirm": "실행할까요?",
 
   // --- quickActions (one-tap reply dock) ---

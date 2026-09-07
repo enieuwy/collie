@@ -27,28 +27,12 @@ function setup(overrides?: {
 }
 
 describe("CommandPalette", () => {
-  it("shows only common commands when the query is empty", () => {
+  it("shows the full catalog with no search — common rows lead", () => {
     setup();
-    // /status is common; /doctor is not.
+    // /status and /doctor are both claude rows now; the catalog leads with its common set.
     expect(screen.getByText("/status")).toBeInTheDocument();
-    expect(screen.queryByText("/doctor")).toBeNull();
-  });
-
-  it("filters across the full catalog as you type", async () => {
-    const user = userEvent.setup();
-    setup();
-    const search = screen.getByPlaceholderText(/Search \d+ commands/);
-    await user.type(search, "doctor");
     expect(screen.getByText("/doctor")).toBeInTheDocument();
-    // Non-matching common commands fall away.
-    expect(screen.queryByText("/status")).toBeNull();
-  });
-
-  it("shows an empty state when nothing matches", async () => {
-    const user = userEvent.setup();
-    setup();
-    await user.type(screen.getByPlaceholderText(/Search \d+ commands/), "zzzznotacommand");
-    expect(screen.getByText(/No commands match/)).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Search/)).toBeNull();
   });
 
   it("submits a no-arg command immediately and closes", async () => {
@@ -142,7 +126,7 @@ describe("CommandPalette", () => {
       ],
     });
     expect(screen.getByText("/fork-in-herdr")).toBeInTheDocument();
-    // The sheet is the operator's shortcuts now — no searching past ten rows nobody picked.
+    // The sheet is the operator's shortcuts now — no scrolling past rows nobody picked.
     expect(screen.queryByText("/compact")).toBeNull();
   });
 
@@ -196,13 +180,13 @@ describe("CommandPalette", () => {
     expect(props.onInsert).not.toHaveBeenCalled();
   });
 
-  it("filters quick replies with the search while commands fall away", async () => {
-    const user = userEvent.setup();
+  it("renders quick replies as chips ahead of the command rows", () => {
     setup();
-    await user.type(screen.getByPlaceholderText(/Search \d+ commands/), "ret");
-    expect(screen.getByText("retry")).toBeInTheDocument();
-    expect(screen.queryByText("/status")).toBeNull();
-    expect(screen.queryByText("yes")).toBeNull();
+    const yes = screen.getByText("yes");
+    const status = screen.getByText("/status");
+    expect(yes.tagName).toBe("BUTTON");
+    // Chips come first in DOM order — fastest reach for the most-tapped items.
+    expect(yes.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("gives a shell y/n and none of the agent phrases", () => {

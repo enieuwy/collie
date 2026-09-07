@@ -449,9 +449,6 @@ export const es: Dictionary = {
   // --- commands (agent command palette) ---
   "commands.title": "Comandos del agente",
   "commands.quickReplies.title": "Respuestas rápidas",
-  "commands.search.placeholder": "Buscar en {count} comandos...",
-  "commands.common.hint": "Comunes. Escriba para buscar los {count}",
-  "commands.empty": "Ningún comando coincide con “{query}”.",
   "commands.confirm": "Confirmar",
 
   // --- quickActions (one-tap reply dock) ---
