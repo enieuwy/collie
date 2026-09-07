@@ -657,8 +657,11 @@ describe("AgentChat — block-grammar scoping (an agent with no adapter)", () =>
       const handleRow = handle.closest('[data-slot="collapse"]')!;
       expect(handleRow).not.toBeNull();
       // Inside the composer, directly above the rail — an opening dock grows above the row,
-      // never under it, so the pin stays where the thumb left it.
+      // never under it, so the pin stays where the thumb left it. The wrapper bleeds to the
+      // chrome edges (-mx-3 cancels the footer's px-3): without it the pin parks 12px off
+      // the glass it used to sit flush on.
       expect(handleRow.parentElement).toBe(composer);
+      expect(handleRow.className).toMatch(/(?:^|\s)-mx-3(?=\s|$)/);
       expect(handleRow.nextElementSibling?.getAttribute("data-slot")).toBe("key-rail");
       // THAT COMPOSER STANDS IN THE CHROME BLOCK, and it is what answers the operator's
       // earlier report that the drawer was "really hard to distinguish" in dark. The block

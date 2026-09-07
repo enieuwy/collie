@@ -1046,15 +1046,19 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             bare
             onClose={closeDrawer}
           >
-            <CommandPalette
-              onClose={closeDrawer}
-              agent={agent}
-              isShell={isShell}
-              mine={operatorCommands}
-              mineReplies={operatorReplies}
-              onInsert={insertCommand}
-              onSubmit={(t) => send(t, false)}
-            />
+            {/* Breathing room under the dock's top rule — the bare dock has no header row
+            to spend it, so the chips would otherwise butt against the border. */}
+            <div className="pt-2">
+              <CommandPalette
+                onClose={closeDrawer}
+                agent={agent}
+                isShell={isShell}
+                mine={operatorCommands}
+                mineReplies={operatorReplies}
+                onInsert={insertCommand}
+                onSubmit={(t) => send(t, false)}
+              />
+            </div>
           </ComposerDock>
         )}
         {drawer === "display" && (
@@ -1072,7 +1076,12 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             ABOVE it, so the row — pin included — never moves under the thumb (DESIGN.md §2).
             Same stand-down rules as before it moved: keyboard up or Keys dock open hides it,
             and `Collapse` unmounts it at the end of the exit so it leaves the tab order. */}
-        <Collapse open={!composing && drawer !== "keys" && rowVisible}>
+        <Collapse
+          open={!composing && drawer !== "keys" && rowVisible}
+          // Bleed to the chrome edges: the footer wears px-3, and without this the row —
+          // pin included — parks 12px off the glass it used to sit flush on.
+          className="-mx-3"
+        >
           <SpaceAgentsRow
             agents={spaceAgents}
             currentPaneId={paneId}
