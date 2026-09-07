@@ -700,6 +700,9 @@ describe("AgentChat — block-grammar scoping (an agent with no adapter)", () =>
         // Same reading as above: the statusline stands down with the keyboard too, so its row in
         // this column is its own Collapse wrapper.
         expect(strip.closest('[data-slot="collapse"]')!.nextElementSibling).toBe(block);
+        // Welded means welded: the strip draws no rule of its own, or it doubles the
+        // block's seam the moment the agents row stands down.
+        expect(strip.className).not.toMatch(/\bborder/);
         expect(block.firstElementChild).toBe(handleRow);
       }
       cleanup();
@@ -781,18 +784,25 @@ describe("AgentChat — space agents row", () => {
     expect(props.onSelect).not.toHaveBeenCalled();
   });
 
-  it("the /Agents button opens the slash-command palette", async () => {
-    // The Controls row's old door, rebuilt on the agents row: same palette, same gate, opened
-    // through the composer's ref. The title pins WHICH sheet this is — every sheet here is a
-    // dialog, so `dialog` alone would pass for the switcher too.
+  it("the pin toggles the in-flow palette, morphing into its close control", async () => {
+    // No sheet, no header: the chips dock in-flow above the rail with the input still
+    // standing. The pin's own glyph says the state — bot shut, X open — and tapping it
+    // again collapses the dock.
     const user = userEvent.setup();
     renderRow();
+    const pin = screen.getByRole("button", { name: "Agent" });
+    expect(pin).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("yes")).toBeNull();
+
+    await user.click(pin);
+    expect(pin).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("yes")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(pin.querySelector("svg.lucide-x")?.getAttribute("class")).toMatch(/opacity-100/);
 
-    await user.click(screen.getByRole("button", { name: "Agent" }));
-
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText("Agent commands")).toBeInTheDocument();
+    await user.click(pin);
+    expect(pin).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(screen.queryByText("yes")).toBeNull());
   });
 
   it("docks the /Agents pin on the configured side", () => {

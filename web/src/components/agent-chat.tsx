@@ -377,13 +377,14 @@ export function AgentChat({
   const commandsLocked = gone || readOnly || hostBlock !== undefined || rowMissingSend !== null;
   const openCommands = useCallback(() => composerRef.current?.openCommands(), []);
   // The agents row stands down while the Keys dock is open — driving keys wants the mirror,
-  // not a session switcher. Stable callback so the composer's report effect only runs on
-  // real drawer transitions.
+  // not a session switcher. The pin morphs while the palette stands. Stable callback so the
+  // composer's report effect only runs on real drawer transitions.
   const [keysOpen, setKeysOpen] = useState(false);
-  const handleDrawerChange = useCallback(
-    (drawer: ComposerDrawer) => setKeysOpen(drawer === "keys"),
-    [],
-  );
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const handleDrawerChange = useCallback((drawer: ComposerDrawer) => {
+    setKeysOpen(drawer === "keys");
+    setPaletteOpen(drawer === "cmd");
+  }, []);
 
   // ── COMPOSING MODE — read ONCE, here, for the whole pane ──────────────────────
   // The soft keyboard takes roughly 45% of a phone. What is left has to hold the header, the tab
@@ -1478,7 +1479,7 @@ export function AgentChat({
                 {statusLines.length > 0 && (
                 <div
                   className={cn(
-                    "max-h-[18dvh] overflow-y-auto overscroll-contain border-t border-border/40 px-3 py-1 font-mono text-[11px] leading-tight",
+                    "max-h-[18dvh] overflow-y-auto overscroll-contain px-3 py-1 font-mono text-[11px] leading-tight",
                     // The strip carries the agent's OWN terminal colour, so it renders in the mirror's
                     // dark space and inverts in light with it (ADR 0002) — a bright statusline colour is
                     // chosen against a near-black background and is illegible re-themed onto app chrome.
@@ -1535,6 +1536,7 @@ export function AgentChat({
                     onHoldPane={setHeldPane}
                     stale={connecting}
                     onOpenCommands={openCommands}
+                    pinOpen={paletteOpen}
                     commandsAvailable={commandsAvailable}
                     commandsDisabled={commandsLocked}
                   />

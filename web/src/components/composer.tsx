@@ -46,7 +46,7 @@ import { NoEchoNotice } from "@/components/no-echo-notice";
 export interface ComposerHandle {
   /** Focus the input and put the caret at the end — used by the mirror-tap-to-focus in AgentChat. */
   focusInput: () => void;
-  /** Open the slash-command palette — the agents row's /Agents button, via AgentChat's ref. */
+  /** Toggle the in-flow agent palette — the agents row's pin, via AgentChat's ref. */
   openCommands: () => void;
 }
 
@@ -559,7 +559,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   // `requestDrawer` there would keep the FIRST render's drawer and queue — opening the palette
   // over an armed Keys queue without its discard confirm.
   const openCommandsRef = useRef<() => void>(() => {});
-  openCommandsRef.current = () => requestDrawer("cmd");
+  openCommandsRef.current = () => requestDrawer(drawer === "cmd" ? null : "cmd");
   useImperativeHandle(
     ref,
     () => ({ focusInput: focusInputImmediately, openCommands: () => openCommandsRef.current() }),
@@ -1008,13 +1008,13 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             below (always visible, not gated behind the keyboard-open quick keys); structural commands
             (New tab/space, Kill) and Stop (Esc, in the Keys dock) live elsewhere. */}
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPickImage} />
-        {/* Keys / Display dock — a single in-flow site above the rail, so the panel grows
+        {/* Keys / Agent / Display dock — a single in-flow site above the rail, so the panel grows
             over the mirror, not the input. Whichever of the mutually exclusive drawers is active
             renders here via the shared ComposerDock chrome. Keys mounts the NavTray (unmounts on
-            close, so tab/queue reset each open); Display mounts the labelled mirror prefs. Keys
-            has an entry (the rail pad) and Agent has one (the agents row's /Agents button,
-            through the ref) — Display renders for a drawer value nothing sets anymore. Agent
-            stays a covering BottomSheet below (it's a palette, not a pad). */}
+            close, so tab/queue reset each open); Agent mounts the palette chips; Display mounts
+            the labelled mirror prefs. Keys has an entry (the rail pad) and Agent has one (the
+            agents row's pin, through the ref) — Display renders for a drawer value nothing sets
+            anymore. */}
         {drawer === "keys" && (
           <ComposerDock
             id="dock-keys"
@@ -1034,6 +1034,26 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               presets={keyPresets}
               onQueueChange={setQueuedKeys}
               disabled={locked}
+            />
+          </ComposerDock>
+        )}
+        {drawer === "cmd" && (
+          <ComposerDock
+            id="dock-cmd"
+            title={translate("commands.title")}
+            // Never a header: the pin morphs into the close control, and the input
+            // placeholder below already names the machine on a pack.
+            bare
+            onClose={closeDrawer}
+          >
+            <CommandPalette
+              onClose={closeDrawer}
+              agent={agent}
+              isShell={isShell}
+              mine={operatorCommands}
+              mineReplies={operatorReplies}
+              onInsert={insertCommand}
+              onSubmit={(t) => send(t, false)}
             />
           </ComposerDock>
         )}
@@ -1355,17 +1375,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         </div>
       </div>
 
-      {/* Slash-command palette */}
-      <CommandPalette
-        open={drawer === "cmd"}
-        onClose={closeDrawer}
-        agent={agent}
-        isShell={isShell}
-        mine={operatorCommands}
-        mineReplies={operatorReplies}
-        onInsert={insertCommand}
-        onSubmit={(t) => send(t, false)}
-      />
     </>
   );
 });

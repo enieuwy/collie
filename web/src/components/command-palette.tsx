@@ -1,17 +1,12 @@
-import { useEffect } from "react";
 import { Pencil } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { BottomSheet } from "@/components/ui/sheet";
 import { usePendingConfirm } from "@/hooks/use-pending-confirm";
 import { commandsFor, type AgentCommand } from "@/lib/agent-commands";
 import { quickRepliesFor } from "@/lib/quick-replies";
 import type { OperatorCommand, OperatorQuickReplyRow } from "@/lib/types";
-import { t } from "@/lib/i18n";
-import { useLocale } from "@/hooks/use-locale";
 
 interface CommandPaletteProps {
-  open: boolean;
   onClose: () => void;
   agent: string | undefined | null;
   /** A bare shell gets y/n replies, never agent phrases (lib/quick-replies). */
@@ -60,7 +55,6 @@ function CommandChip({
   );
 }
 export function CommandPalette({
-  open,
   onClose,
   agent,
   isShell,
@@ -69,15 +63,7 @@ export function CommandPalette({
   onInsert,
   onSubmit,
 }: CommandPaletteProps) {
-  useLocale();
   const { pending, confirm, reset } = usePendingConfirm();
-
-  // Reset transient state whenever the sheet (re)opens.
-  useEffect(() => {
-    if (open) {
-      reset();
-    }
-  }, [open, reset]);
 
   // No search, no filter: the catalogs lead with their common rows, so the full list reads
   // common-first and the sheet scrolls the rest. Fifty rows of scroll worst case (Claude).
@@ -109,7 +95,7 @@ export function CommandPalette({
   }
 
   return (
-    <BottomSheet open={open} onClose={onClose} title={t("commands.title")} className="max-h-[85dvh]">
+    <>
       {replies.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-1.5">
           {replies.map((item, i) => (
@@ -130,6 +116,6 @@ export function CommandPalette({
           <CommandChip key={c.command} c={c} isPending={pending === c.command} onPick={pick} />
         ))}
       </div>
-    </BottomSheet>
+    </>
   );
 }

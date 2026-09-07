@@ -14,7 +14,6 @@ function setup(overrides?: {
   // `undefined` for the same prop, so the base value has to carry the whole domain.
   const agentProp: string | null | undefined = "claude";
   const props = {
-    open: true,
     onClose: vi.fn(),
     agent: agentProp,
     isShell: false,

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Bot, ChevronUp } from "lucide-react";
+import { Bot, ChevronUp, X } from "lucide-react";
 
 import { StatusDot } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -29,8 +29,10 @@ interface SpaceAgentsRowProps {
   onHoldPane: (pane: AgentView) => void;
   /** Connection not live: dots show the last snapshot dimmed, like every other StatusDot. */
   stale?: boolean;
-  /** Opens the slash-command palette through the composer's ref. */
+  /** Toggles the in-flow agent palette through the composer's ref. */
   onOpenCommands: () => void;
+  /** Whether the palette stands open — the pin morphs into its close control. */
+  pinOpen: boolean;
   /** The palette's own gate: something pickable exists (shipped catalog or operator rows). */
   commandsAvailable: boolean;
   /** The write lock, recomputed up in AgentChat — a read-only device gets a dead button. */
@@ -45,6 +47,7 @@ export function SpaceAgentsRow({
   onHoldPane,
   stale,
   onOpenCommands,
+  pinOpen,
   commandsAvailable,
   commandsDisabled,
 }: SpaceAgentsRowProps) {
@@ -81,14 +84,30 @@ export function SpaceAgentsRow({
       onClick={onOpenCommands}
       disabled={commandsDisabled}
       aria-label={translate("composer.controls.agent")}
-      aria-haspopup="dialog"
+      aria-expanded={pinOpen}
+      aria-controls="dock-cmd"
       className={
         side === "left"
           ? "flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-r-full rounded-l-none bg-muted pl-3 pr-2.5 text-muted-foreground select-none"
           : "flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
       }
     >
-      <Bot className="size-4" />
+      {/* Same morph as the rail pad: the agent glyph crossfades into an X while the palette
+      stands, so the pin visibly offers to collapse what it opened. */}
+      <span aria-hidden="true" className="relative block size-4">
+        <Bot
+          className={cn(
+            "absolute inset-0 size-4 transition-all duration-200 motion-reduce:transition-none",
+            pinOpen ? "scale-50 opacity-0" : "scale-100 opacity-100",
+          )}
+        />
+        <X
+          className={cn(
+            "absolute inset-0 size-4 transition-all duration-200 motion-reduce:transition-none",
+            pinOpen ? "scale-100 opacity-100" : "scale-50 opacity-0",
+          )}
+        />
+      </span>
     </Button>
   ) : null;
 
