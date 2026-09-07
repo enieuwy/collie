@@ -784,6 +784,8 @@ describe("AgentChat — space agents row", () => {
     expect(screen.getByText("yes")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(pin.querySelector("svg.lucide-x")?.getAttribute("class")).toMatch(/opacity-100/);
+    // Same morph as the rail pad — the X untwists in, not just fades.
+    expect(pin.querySelector("svg.lucide-x")?.getAttribute("class")).toMatch(/rotate-0/);
 
     await user.click(pin);
     expect(pin).toHaveAttribute("aria-expanded", "false");

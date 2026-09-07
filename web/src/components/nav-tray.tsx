@@ -281,7 +281,10 @@ export function NavTray({
   };
 
   return (
-    <div className="space-y-2 border-t border-rule bg-muted/30 px-3 py-2.5">
+    // No top rule of its own: the chrome block's seam already draws the panel's top edge,
+    // and the bg-muted/30 wash already parts the tray from the dock header — a border-t here
+    // doubled the key pane's top line while the agent pane stayed single.
+    <div className="space-y-2 bg-muted/30 px-3 py-2.5">
       {/* Staging strip — visible only while composing (a modifier armed or keys queued). Same on
           both tabs; the review-and-Send surface replaces the old "⇧ armed" hint line. */}
       <KeyQueueStrip

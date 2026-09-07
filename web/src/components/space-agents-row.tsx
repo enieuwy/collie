@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { Bot, ChevronUp, X } from "lucide-react";
 
+import { MorphIcon } from "@/components/ui/morph-icon";
+
 import { StatusDot } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/hooks/use-locale";
@@ -92,22 +94,9 @@ export function SpaceAgentsRow({
           : "flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-l-full rounded-r-none bg-muted pl-2.5 pr-3 text-muted-foreground select-none"
       }
     >
-      {/* Same morph as the rail pad: the agent glyph crossfades into an X while the palette
-      stands, so the pin visibly offers to collapse what it opened. */}
-      <span aria-hidden="true" className="relative block size-4">
-        <Bot
-          className={cn(
-            "absolute inset-0 size-4 transition-all duration-200 motion-reduce:transition-none",
-            pinOpen ? "scale-50 opacity-0" : "scale-100 opacity-100",
-          )}
-        />
-        <X
-          className={cn(
-            "absolute inset-0 size-4 transition-all duration-200 motion-reduce:transition-none",
-            pinOpen ? "scale-100 opacity-100" : "scale-50 opacity-0",
-          )}
-        />
-      </span>
+      {/* Same morph as the rail pad — one shared MorphIcon, so the pin visibly offers to
+      collapse what it opened, with the same untwist. */}
+      <MorphIcon open={pinOpen} shut={Bot} show={X} />
     </Button>
   ) : null;
 

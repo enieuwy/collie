@@ -1989,7 +1989,9 @@ describe("Composer — keys dock (in-flow, not an overlay)", () => {
 
     await user.click(pad);
     expect(pad.querySelector("svg.lucide-keyboard")?.getAttribute("class")).toMatch(/opacity-0/);
+    // The shared morph: the incoming X untwists as it lands, the same treatment the pin gets.
     expect(pad.querySelector("svg.lucide-x")?.getAttribute("class")).toMatch(/opacity-100/);
+    expect(pad.querySelector("svg.lucide-x")?.getAttribute("class")).toMatch(/rotate-0/);
     expect(keysDock()!.className).not.toMatch(/(?:^| )border-t(?: |$)/);
 
     await user.click(pad);
