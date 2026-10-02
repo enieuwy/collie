@@ -434,6 +434,64 @@ describe("StateEngine — session name enrichment", () => {
     expect(agent("w1:p1").sessionName).toBeUndefined();
   });
 
+  test("keeps the previous snapshot until enrichment finishes, then publishes before callbacks", async () => {
+    const { herdr, engine, poll } = makeNameEngine();
+    herdr.panes = [
+      pane("w1:p1", "w1", "working", "claude"),
+      pane("w1:p2", "w1", "idle", "claude"),
+    ];
+    herdr.texts.set("w1:p1", named("before"));
+    herdr.texts.set("w1:p2", named("gone"));
+    await poll();
+    const previous = engine.current();
+    const transitions: Array<{ current: EngineSnapshot; name: string | undefined }> = [];
+    const removals: EngineSnapshot[] = [];
+    const updates: EngineSnapshot[] = [];
+    engine.onTransition((a) => transitions.push({ current: engine.current(), name: a.sessionName }));
+    engine.onRemove(() => removals.push(engine.current()));
+    engine.onUpdate((s) => updates.push(s));
+
+    let entered!: () => void;
+    const readStarted = new Promise<void>((resolve) => { entered = resolve; });
+    let release!: () => void;
+    const readGate = new Promise<void>((resolve) => { release = resolve; });
+    herdr.readPane = async (paneId) => {
+      entered();
+      await readGate;
+      return { pane_id: paneId, text: named("after"), truncated: false, revision: 0 };
+    };
+    herdr.panes = [
+      pane("w1:p1", "w1", "blocked", "claude"),
+      pane("w1:p2", "w1", "unknown", null),
+    ];
+    const pending = poll();
+    await readStarted;
+    try {
+      expect(engine.current()).toEqual(previous);
+      expect(transitions).toEqual([]);
+      expect(removals).toEqual([]);
+      expect(updates).toEqual([]);
+    } finally {
+      release();
+      await pending;
+    }
+
+    const fresh = engine.current();
+    expect(fresh.agents.map((a) => [a.paneId, a.status, a.sessionName])).toEqual([
+      ["w1:p1", "blocked", "after"],
+    ]);
+    expect(fresh.shellPanes.map((a) => [a.paneId, a.sessionName])).toEqual([["w1:p2", undefined]]);
+    expect(transitions).toEqual([{ current: fresh, name: "after" }]);
+    expect(removals).toEqual([fresh]);
+    expect(updates).toEqual([fresh]);
+
+    herdr.readPane = async (paneId) =>
+      ({ pane_id: paneId, text: plainBox, truncated: false, revision: 0 });
+    herdr.panes = [pane("w1:p2", "w1", "idle", "claude")];
+    await poll();
+    expect(engine.current().agents[0]!.sessionName).toBeUndefined();
+  });
+
   test("a failing pane read never blanks the name or fails the poll", async () => {
     const { herdr, engine, poll, agent } = makeNameEngine();
     herdr.panes = [pane("w1:p1", "w1", "idle", "claude")];

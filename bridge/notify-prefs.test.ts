@@ -67,6 +67,34 @@ describe("NotifyPrefsStore", () => {
     expect(reloaded.current()).toEqual({ blocked: true, done: true, updates: false });
   });
 
+  test("concurrent patches all persist without losing the last patch", async () => {
+    const cfg = await tempCfg();
+    const store = new NotifyPrefsStore(cfg);
+    const writes = Array.from({ length: 32 }, (_, i) =>
+      store.set({ blocked: i % 2 === 0, done: i % 3 === 0 }),
+    );
+    writes.push(store.set({ blocked: false, done: true, updates: false }));
+    await Promise.all(writes);
+
+    const reloaded = new NotifyPrefsStore(cfg);
+    await reloaded.load();
+    expect(reloaded.current()).toEqual({ blocked: false, done: true, updates: false });
+  });
+
+  test("a failed save does not block the next patch", async () => {
+    const cfg = await tempCfg();
+    await rm(cfg.stateDir, { recursive: true });
+    await writeFile(cfg.stateDir, "not a directory");
+    const store = new NotifyPrefsStore(cfg);
+    await expect(store.set({ blocked: false })).rejects.toThrow();
+    await rm(cfg.stateDir);
+    await store.set({ done: true });
+
+    const reloaded = new NotifyPrefsStore(cfg);
+    await reloaded.load();
+    expect(reloaded.current()).toEqual({ blocked: false, done: true, updates: true });
+  });
+
   test("current() returns a copy — callers can't mutate the store's state", async () => {
     const store = new NotifyPrefsStore(await tempCfg());
     await store.load();

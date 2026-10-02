@@ -40,6 +40,7 @@ export function coerceNotifyPrefs(raw: unknown): NotifyPrefs {
 export class NotifyPrefsStore {
   private prefs: NotifyPrefs = { ...DEFAULT_NOTIFY_PREFS };
   private readonly file: string;
+  private saveChain: Promise<void> = Promise.resolve();
 
   constructor(private readonly cfg: Config) {
     this.file = join(cfg.stateDir, "notify-prefs.json");
@@ -78,10 +79,18 @@ export class NotifyPrefsStore {
   }
 
   /** Atomic, owner-only write: fresh temp file (mode 0600) then rename over the target. */
-  private async save(): Promise<void> {
+  private save(): Promise<void> {
+    const snapshot = JSON.stringify(this.prefs, null, 2);
+    const write = () => this.writeState(snapshot);
+    const run = this.saveChain.then(write, write);
+    this.saveChain = run.catch(() => {});
+    return run;
+  }
+
+  private async writeState(data: string): Promise<void> {
     await mkdir(this.cfg.stateDir, { recursive: true, mode: 0o700 });
     const tmp = `${this.file}.tmp`;
-    await writeFile(tmp, JSON.stringify(this.prefs, null, 2), { mode: 0o600 });
+    await writeFile(tmp, data, { mode: 0o600 });
     await rename(tmp, this.file);
   }
 }

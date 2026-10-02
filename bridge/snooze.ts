@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Config } from "./config.ts";
 
@@ -11,6 +11,7 @@ import type { Config } from "./config.ts";
 export class Snooze {
   private mutedUntil: number | null = null;
   private readonly file: string;
+  private saveChain: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly cfg: Config,
@@ -41,10 +42,18 @@ export class Snooze {
   /** Snooze until `mutedUntil` (epoch ms); a past timestamp or null resumes immediately. */
   async set(mutedUntil: number | null): Promise<void> {
     this.mutedUntil = mutedUntil !== null && mutedUntil > this.now() ? mutedUntil : null;
+    const snapshot = JSON.stringify({ mutedUntil: this.mutedUntil }, null, 2);
+    const write = () => this.writeState(snapshot);
+    const run = this.saveChain.then(write, write);
+    this.saveChain = run.catch(() => {});
+    await run;
+  }
+
+  /** Atomic, owner-only write, serialised with every earlier set. */
+  private async writeState(data: string): Promise<void> {
     await mkdir(this.cfg.stateDir, { recursive: true, mode: 0o700 });
-    // node:fs write (not Bun.write) so we can set owner-only perms — the state dir holds push keys.
-    await writeFile(this.file, JSON.stringify({ mutedUntil: this.mutedUntil }, null, 2), {
-      mode: 0o600,
-    });
+    const tmp = `${this.file}.tmp`;
+    await writeFile(tmp, data, { mode: 0o600 });
+    await rename(tmp, this.file);
   }
 }

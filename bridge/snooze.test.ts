@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -55,6 +55,37 @@ describe("Snooze", () => {
 
     now = 32_000;
     expect(b.isMuted()).toBe(false); // a persisted deadline still expires on its own
+  });
+
+  test("concurrent deadlines persist the last request across a reload", async () => {
+    const cfg = await tempCfg();
+    const snooze = new Snooze(cfg, () => 1_000);
+    const writes = Array.from({ length: 32 }, (_, i) => snooze.set(10_000 + i));
+    writes.push(snooze.set(null));
+    await Promise.all(writes);
+
+    const reloaded = new Snooze(cfg, () => 1_000);
+    await reloaded.load();
+    expect(await Bun.file(join(cfg.stateDir, "snooze.json")).json()).toEqual({ mutedUntil: null });
+    expect(reloaded.until()).toBeNull();
+    expect((await stat(join(cfg.stateDir, "snooze.json"))).mode & 0o777).toBe(0o600);
+  });
+
+  test("a failed save preserves the prior file and does not block the next request", async () => {
+    const cfg = await tempCfg();
+    const snooze = new Snooze(cfg, () => 1_000);
+    await snooze.set(30_000);
+    const tmp = join(cfg.stateDir, "snooze.json.tmp");
+    // A directory at the temp path prevents staging, but must not truncate the saved deadline.
+    await mkdir(tmp);
+    await expect(snooze.set(null)).rejects.toThrow();
+    expect(await Bun.file(join(cfg.stateDir, "snooze.json")).json()).toEqual({ mutedUntil: 30_000 });
+    await rm(tmp, { recursive: true });
+    await snooze.set(40_000);
+
+    const reloaded = new Snooze(cfg, () => 1_000);
+    await reloaded.load();
+    expect(reloaded.until()).toBe(40_000);
   });
 
   test("load tolerates a missing file", async () => {

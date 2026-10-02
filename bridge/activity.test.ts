@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { describe, expect, spyOn, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -337,6 +337,38 @@ describe("ActivityLedger — persistence", () => {
     await reloaded.load();
     expect(reloaded.snapshot()).toEqual(l.snapshot());
     reloaded.stop();
+  });
+
+  test("the background debounce persists dirty activity without an explicit flush", async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "collie-activity-background-"));
+    let now = 1_000_000;
+    const l = new ActivityLedger({ stateDir }, () => now, 0);
+    const flush = l.flush.bind(l);
+    let saved!: () => void;
+    const persisted = new Promise<void>((resolve) => { saved = resolve; });
+    const flushObserver = spyOn(l, "flush").mockImplementation(async () => {
+      await flush();
+      saved();
+    });
+    try {
+      l.ensure("demo", "w0:p1");
+      now = 2_000_000;
+      l.noteActive("demo", "w0:p1");
+      await persisted;
+
+      const reloaded = new ActivityLedger({ stateDir }, () => now);
+      await reloaded.load();
+      expect(reloaded.get("demo", "w0:p1")).toEqual({
+        activeAt: 2_000_000,
+        seenAt: 1_000_000,
+      });
+      expect(unseen(reloaded.get("demo", "w0:p1"))).toBe(true);
+      reloaded.stop();
+    } finally {
+      flushObserver.mockRestore();
+      l.stop();
+      rmSync(stateDir, { recursive: true, force: true });
+    }
   });
 
   test("a missing file loads as empty rather than throwing", async () => {

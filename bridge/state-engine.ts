@@ -311,6 +311,23 @@ export class StateEngine {
         paneCount: t.pane_count,
       }));
 
+      const live = new Set(agents.map((a) => a.paneId));
+      // Prune names before enrichment, so a pane that becomes a shell cannot inherit its old name.
+      for (const id of this.sessionNames.keys()) {
+        if (!live.has(id)) this.sessionNames.delete(id);
+      }
+
+      // Keep the previous snapshot and its activity timestamps together while reads are in flight.
+      // A failed name read keeps the last-known name and never fails the poll.
+      await this.enrichSessionNames(agents);
+
+      this.agents = agents;
+      this.shellPanes = shellPanes;
+      this.workspaces = workspaceViews;
+      this.tabs = tabViews;
+      this.bridge = "connected";
+
+      // Publish before callbacks: transition/removal listeners may read current() synchronously.
       // Detect transitions against the previous poll. First sighting of a pane never fires a
       // transition (so we don't notify for agents already blocked when the bridge starts).
       for (const a of agents) {
@@ -320,23 +337,11 @@ export class StateEngine {
         }
         this.prevStatus.set(a.paneId, a.status);
       }
-      const live = new Set(agents.map((a) => a.paneId));
       for (const id of [...this.prevStatus.keys()]) {
         if (live.has(id)) continue;
         this.prevStatus.delete(id);
-        this.sessionNames.delete(id); // drop the cached name so a reused pane id starts clean
         for (const fn of this.removeListeners) fn(id);
       }
-
-      // Enrich claude panes with their own `/rename` session name (read from pane text). Best-effort:
-      // a failed read keeps the last-known name and never fails the poll.
-      await this.enrichSessionNames(agents);
-
-      this.agents = agents;
-      this.shellPanes = shellPanes;
-      this.workspaces = workspaceViews;
-      this.tabs = tabViews;
-      this.bridge = "connected";
 
       // After all transition/removal bookkeeping so listeners see a consistent, current snapshot.
       const snap = this.current();
