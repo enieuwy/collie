@@ -437,6 +437,24 @@ describe("pane write prompt binding", () => {
     };
   }
 
+  test.each([null, 42, true, "text", []])(
+    "rejects non-object action body %j before reading or writing a pane",
+    async (body) => {
+      for (const action of [keysPane, replyPane]) {
+        const client = new FakePaneClient();
+        const { audit, entries } = auditEntries();
+        const response = await action(
+          client as unknown as HerdrClient, cfg(), "w1:p1", request(body), audit, null, "default",
+        );
+        expect(response.status).toBe(400);
+        expect(client.reads).toEqual([]);
+        expect(client.texts).toEqual([]);
+        expect(client.keys).toEqual([]);
+        expect(entries).toEqual([]);
+      }
+    },
+  );
+
   test("keys without expected_prompt writes without an extra pane read", async () => {
     const client = new FakePaneClient();
     const { audit } = auditEntries();

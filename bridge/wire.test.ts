@@ -2,6 +2,18 @@ import { describe, expect, test } from "bun:test";
 
 import { decodeReplyLine, decodeStreamLine } from "./wire.ts";
 
+describe("malformed Herdr error payloads", () => {
+  test.each([null, 42, "socket unavailable", {}, { code: "broken" }, { code: 5, message: "bad" }])(
+    "rejects %j as a protocol error in both decoders",
+    (error) => {
+      const line = JSON.stringify({ error });
+      const detail = `invalid error payload: ${JSON.stringify(error)}`;
+      expect(() => decodeReplyLine(line, "pane.list")).toThrow(`herdr pane.list: ${detail}`);
+      expect(() => decodeStreamLine(line)).toThrow(`herdr events: ${detail}`);
+    },
+  );
+});
+
 // The reply decoder is the pure core of the socket adapter: JSON parse plus result/error
 // discrimination. Exercising it here covers the wire shapes without needing a live Herdr socket.
 

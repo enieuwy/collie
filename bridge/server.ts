@@ -240,16 +240,18 @@ export function startServer(opts: {
       }
 
       // ── Structural creates: new tab / new space (each opens a fresh shell pane) ──
-      if (pathname === "/api/tab" && req.method === "POST") {
+      if (pathname === "/api/tab") {
         const denied = guard(req, cfg, "write");
         if (denied) return denied;
+        if (req.method !== "POST") return text("method not allowed", 405);
         const rt = registry.get(sessionName);
         if (!rt) return unknownSession();
         return createTab(rt.herdr, rt.engine, req, audit, deviceAuth(req, cfg).device, rt.name);
       }
-      if (pathname === "/api/workspace" && req.method === "POST") {
+      if (pathname === "/api/workspace") {
         const denied = guard(req, cfg, "write");
         if (denied) return denied;
+        if (req.method !== "POST") return text("method not allowed", 405);
         const rt = registry.get(sessionName);
         if (!rt) return unknownSession();
         return createWorkspace(rt.herdr, req, audit, deviceAuth(req, cfg).device, rt.name);
@@ -257,9 +259,10 @@ export function startServer(opts: {
 
       // ── Tab actions: rename (set its label) / close (kill it + every pane in it) ──
       const tabMatch = pathname.match(TAB_ACTION_ROUTE);
-      if (tabMatch && req.method === "POST") {
+      if (tabMatch) {
         const denied = guard(req, cfg, "write");
         if (denied) return denied;
+        if (req.method !== "POST") return text("method not allowed", 405);
         const rt = registry.get(sessionName);
         if (!rt) return unknownSession();
         const tabId = decodeURIComponent(tabMatch[1]!);
@@ -346,7 +349,7 @@ export function startServer(opts: {
         if (denied) return denied;
         let body: unknown;
         try {
-          body = await req.json();
+          body = await objectBody(req);
         } catch {
           return text("bad subscription", 400);
         }
@@ -363,7 +366,7 @@ export function startServer(opts: {
         if (denied) return denied;
         let body: unknown;
         try {
-          body = await req.json();
+          body = await objectBody(req);
         } catch {
           return text("bad request", 400);
         }
@@ -392,7 +395,7 @@ export function startServer(opts: {
           if (denied) return denied;
           let body: unknown;
           try {
-            body = await req.json();
+            body = await objectBody(req);
           } catch {
             return text("bad request", 400);
           }
@@ -674,7 +677,7 @@ export async function replyPane(
 ): Promise<Response> {
   let body: { text?: string; submit?: boolean; expected_prompt?: unknown };
   try {
-    body = (await req.json()) as typeof body;
+    body = await objectBody(req);
   } catch {
     return text("bad body", 400);
   }
@@ -735,7 +738,7 @@ export async function keysPane(
 ): Promise<Response> {
   let body: { keys?: unknown; expected_prompt?: unknown };
   try {
-    body = (await req.json()) as typeof body;
+    body = await objectBody(req);
   } catch {
     return text("bad body", 400);
   }
@@ -919,7 +922,7 @@ async function renamePane(
   const ae = req.headers.get("accept-encoding");
   let body: { label?: unknown };
   try {
-    body = (await req.json()) as typeof body;
+    body = await objectBody(req);
   } catch {
     return text("bad body", 400);
   }
@@ -965,7 +968,7 @@ async function renameTab(
   const ae = req.headers.get("accept-encoding");
   let body: { label?: unknown };
   try {
-    body = (await req.json()) as typeof body;
+    body = await objectBody(req);
   } catch {
     return text("bad body", 400);
   }
@@ -1015,13 +1018,13 @@ async function createTab(
 ): Promise<Response> {
   let body: { workspaceId?: string; label?: string; cwd?: string };
   try {
-    body = (await req.json()) as typeof body;
+    body = await objectBody(req);
   } catch {
     return text("bad body", 400);
   }
-  const workspaceId = body.workspaceId?.trim();
+  const workspaceId = typeof body.workspaceId === "string" ? body.workspaceId.trim() : "";
   const ae = req.headers.get("accept-encoding");
-  if (!workspaceId) return json({ ok: false, error: "workspaceId required" } satisfies CreateResponse, ae);
+  if (!workspaceId) return json({ ok: false, error: "workspaceId required" } satisfies CreateResponse, ae, 400);
   try {
     const created = await herdr.createTab(workspaceId, { label: body.label, cwd: body.cwd });
     const label =
@@ -1055,7 +1058,7 @@ async function createWorkspace(
 ): Promise<Response> {
   let body: { cwd?: string; label?: string };
   try {
-    body = (await req.json()) as typeof body;
+    body = await objectBody(req);
   } catch {
     return text("bad body", 400);
   }
@@ -1128,7 +1131,7 @@ async function uploadPane(
     return json({ ok: false, error: "unsupported type" } satisfies UploadResponse, ae);
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return json({ ok: false, error: "image too large (max 10 MB)" } satisfies UploadResponse, ae);
+    return json({ ok: false, error: "image too large (max 10 MB)" } satisfies UploadResponse, ae, 413);
   }
   try {
     const dir = join(cfg.stateDir, "uploads");
@@ -1293,6 +1296,15 @@ export function deviceAuth(req: Request, cfg: Config): DeviceAuth {
 function secure(res: Response): Response {
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.headers.set(k, v);
   return res;
+}
+
+/** JSON action bodies must be records, not null, arrays, or primitive values. */
+async function objectBody(req: Request): Promise<Record<string, unknown>> {
+  const body: unknown = await req.json();
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    throw new TypeError("expected a JSON object");
+  }
+  return body as Record<string, unknown>;
 }
 
 function json(data: unknown, acceptEncoding: string | null, status = 200): Response {

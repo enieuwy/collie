@@ -17,7 +17,7 @@ export function decodeReplyLine<T>(line: string, method: string): T {
   }
   if (msg !== null && typeof msg === "object") {
     if ("error" in msg) {
-      const err = (msg as { error: { code: string; message: string } }).error;
+      const err = decodeError(msg.error, `herdr ${method}`);
       throw new Error(`herdr ${method}: ${err.code}: ${err.message}`);
     }
     if ("result" in msg) return (msg as { result: T }).result;
@@ -51,7 +51,7 @@ export function decodeStreamLine(line: string): StreamLine {
   }
   if (msg !== null && typeof msg === "object") {
     if ("error" in msg) {
-      const err = (msg as { error: { code: string; message: string } }).error;
+      const err = decodeError(msg.error, "herdr events");
       return { kind: "error", code: err.code, message: err.message };
     }
     if ("result" in msg) {
@@ -73,4 +73,18 @@ export function decodeStreamLine(line: string): StreamLine {
     }
   }
   throw new Error(`herdr events: unrecognized stream line: ${line}`);
+}
+
+function decodeError(value: unknown, context: string): { code: string; message: string } {
+  if (
+    value !== null &&
+    typeof value === "object" &&
+    "code" in value &&
+    typeof value.code === "string" &&
+    "message" in value &&
+    typeof value.message === "string"
+  ) {
+    return { code: value.code, message: value.message };
+  }
+  throw new Error(`${context}: invalid error payload: ${JSON.stringify(value)}`);
 }
