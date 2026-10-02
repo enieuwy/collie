@@ -75,14 +75,36 @@ export function splitHighlight(text: string, query: string): HighlightPiece[] {
   const needle = query.trim().toLowerCase();
   if (needle === "" || text === "") return [{ text, hit: false }];
   const hay = text.toLowerCase();
+  // Lowercasing can expand a code point (İ → i + combining dot). Keep the same lowercased
+  // substring search as matchingEntries, but map its offsets back before slicing the source.
+  // Most text keeps its UTF-16 length, so only expanding text needs these maps.
+  let starts: number[] | undefined;
+  let ends: number[] | undefined;
+  if (hay.length !== text.length) {
+    starts = [];
+    ends = [];
+    let original = 0;
+    for (const ch of text) {
+      const loweredLength = ch.toLowerCase().length;
+      for (let i = 0; i < loweredLength; i++) {
+        starts.push(original + (loweredLength === ch.length ? i : 0));
+        ends.push(original + (loweredLength === ch.length ? i + 1 : ch.length));
+      }
+      original += ch.length;
+    }
+  }
   const pieces: HighlightPiece[] = [];
   let at = 0;
+  let searchedAt = 0;
   for (;;) {
-    const found = hay.indexOf(needle, at);
+    const found = hay.indexOf(needle, searchedAt);
     if (found === -1) break;
-    if (found > at) pieces.push({ text: text.slice(at, found), hit: false });
-    pieces.push({ text: text.slice(found, found + needle.length), hit: true });
-    at = found + needle.length;
+    const start = starts?.[found] ?? found;
+    const end = ends?.[found + needle.length - 1] ?? found + needle.length;
+    if (start > at) pieces.push({ text: text.slice(at, start), hit: false });
+    if (end > at) pieces.push({ text: text.slice(Math.max(at, start), end), hit: true });
+    at = Math.max(at, end);
+    searchedAt = found + needle.length;
   }
   if (pieces.length === 0) return [{ text, hit: false }];
   if (at < text.length) pieces.push({ text: text.slice(at), hit: false });

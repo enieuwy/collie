@@ -147,6 +147,42 @@ describe("splitHighlight", () => {
     expect(splitHighlight(text, query)).toEqual([{ text, hit: false }]);
   });
 
+  it("keeps offsets after an expanding lowercase character", () => {
+    expect(splitHighlight("İ guard GUARD", "guard")).toEqual([
+      { text: "İ ", hit: false },
+      { text: "guard", hit: true },
+      { text: " ", hit: false },
+      { text: "GUARD", hit: true },
+    ]);
+  });
+
+  it.each(["i", "i\u0307", "\u0307"])("marks the original character for the folded query %j", (query) => {
+    const text = "İ!";
+    expect(matchingEntries([entry({ parts: [{ kind: "text", text }] })], query)).toEqual([0]);
+    expect(splitHighlight(text, query)).toEqual([
+      { text: "İ", hit: true },
+      { text: "!", hit: false },
+    ]);
+  });
+
+  it("maps both ends of a hit spanning an expansion without splitting an emoji", () => {
+    expect(splitHighlight("🐕 AİB 🦮", "ai\u0307b")).toEqual([
+      { text: "🐕 ", hit: false },
+      { text: "AİB", hit: true },
+      { text: " 🦮", hit: false },
+    ]);
+  });
+
+  it("keeps whole-string lowercase rules rather than changing to regex case folding", () => {
+    const text = "İ ΟΣ";
+    expect(splitHighlight(text, "ος")).toEqual([
+      { text: "İ ", hit: false },
+      { text: "ΟΣ", hit: true },
+    ]);
+    expect(splitHighlight(text, "οσ")).toEqual([{ text, hit: false }]);
+    expect(splitHighlight("ſ", "s")).toEqual([{ text: "ſ", hit: false }]);
+  });
+
   it("reassembles to the original string exactly", () => {
     const src = "Deploy the GUARD, then guard again";
     expect(splitHighlight(src, "guard").map((p) => p.text).join("")).toBe(src);
