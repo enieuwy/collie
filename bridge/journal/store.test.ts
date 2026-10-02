@@ -86,13 +86,14 @@ describe("TranscriptStore", () => {
     expect(calls.stat).toBe(2);
   });
 
-  test("a moved file is re-read and re-parsed", async () => {
+  test("an appended turn invalidates the cached journal", async () => {
     const { adapter, calls, append } = fakeAdapter(["u1", "u2"]);
     const store = new TranscriptStore();
     await store.page(adapter, REF, { limit: 10 });
     append("u3");
     const after = await store.page(adapter, REF, { limit: 10 });
     expect(calls.load).toBe(2);
+    expect(calls.parse).toBe(2);
     expect(after!.total).toBe(3);
     expect(after!.entries.map((e) => e.uuid)).toEqual(["u1", "u2", "u3"]);
   });

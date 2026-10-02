@@ -159,6 +159,8 @@ export function parsePiTranscript(text: string): TranscriptEntry[] {
   return entries;
 }
 
+const PATH_CACHE_MAX = 128;
+
 /**
  * Real filesystem source rooted at pi's `sessions` directory.
  *
@@ -169,7 +171,7 @@ export function parsePiTranscript(text: string): TranscriptEntry[] {
  *    per-cwd directory, so this is a scan of the project dirs, cached after the first hit.
  */
 export class PiTranscriptSource implements TranscriptSource {
-  private readonly pathCache = new Map<string, string>();
+  private readonly pathCache = new Map<string, { path: string; root: string }>();
 
   private readonly roots: string[];
 
@@ -192,7 +194,8 @@ export class PiTranscriptSource implements TranscriptSource {
     const sessionId = ref.value;
     const cached = this.pathCache.get(sessionId);
     if (cached !== undefined) {
-      if (await exists(cached)) return cached;
+      const real = await containedRealpath(cached.path, cached.root);
+      if (real !== null) return real;
       this.pathCache.delete(sessionId);
     }
 
@@ -200,7 +203,11 @@ export class PiTranscriptSource implements TranscriptSource {
     for (const root of this.roots) {
       const hit = await this.findUnder(root, suffix);
       if (hit === null) continue; // absent here, or present but not this root's to serve
-      this.pathCache.set(sessionId, hit);
+      this.pathCache.set(sessionId, { path: hit, root });
+      if (this.pathCache.size > PATH_CACHE_MAX) {
+        const oldest = this.pathCache.keys().next().value;
+        if (oldest !== undefined) this.pathCache.delete(oldest);
+      }
       return hit;
     }
     return null;

@@ -224,6 +224,8 @@ export function parseGrokTranscript(text: string): TranscriptEntry[] {
   return entries;
 }
 
+const PATH_CACHE_MAX = 128;
+
 /**
  * Scan `$GROK_HOME/sessions/<cwd-dir>/<uuid>/chat_history.jsonl`. Session uuids are unique, so
  * scanning cwd dirs for a matching directory name is both correct and cheap. A path-kind ref is
@@ -259,6 +261,10 @@ export class GrokTranscriptSource implements TranscriptSource {
       const hit = await this.findUnder(root, sessionId);
       if (hit === null) continue;
       this.pathCache.set(sessionId, { path: hit, root });
+      if (this.pathCache.size > PATH_CACHE_MAX) {
+        const oldest = this.pathCache.keys().next().value;
+        if (oldest !== undefined) this.pathCache.delete(oldest);
+      }
       return hit;
     }
     return null;

@@ -255,6 +255,9 @@ export function conversationRoot(text: string): string | null {
   return null;
 }
 
+// Resolution hints are small, but the bridge may visit arbitrarily many sessions over its lifetime.
+const PATH_CACHE_MAX = 128;
+
 /**
  * Real filesystem source rooted at Claude's projects directory.
  *
@@ -294,7 +297,8 @@ export class ClaudeTranscriptSource implements TranscriptSource {
       // which never changes. Continuation-following must still run on every call, because the
       // conversation rotates into a new file WHILE the bridge is up: caching its result would pin the
       // answer to whatever was true at the first request and go stale minutes later.
-      if (await exists(cached.path)) return this.followContinuation(cached.path, cached.root);
+      const real = await containedRealpath(cached.path, cached.root);
+      if (real !== null) return this.followContinuation(real, cached.root);
       this.pathCache.delete(sessionId);
     }
 
@@ -318,6 +322,10 @@ export class ClaudeTranscriptSource implements TranscriptSource {
           break;
         }
         this.pathCache.set(sessionId, { path: real, root });
+        if (this.pathCache.size > PATH_CACHE_MAX) {
+          const oldest = this.pathCache.keys().next().value;
+          if (oldest !== undefined) this.pathCache.delete(oldest);
+        }
         return this.followContinuation(real, root);
       }
     }

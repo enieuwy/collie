@@ -26,7 +26,7 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 
-import { containedRealpath, exists, loadTail, rootList, statFile } from "./files.ts";
+import { containedRealpath, loadTail, rootList, statFile } from "./files.ts";
 import { clamp, MAX_RESULT_CHARS, MAX_TEXT_CHARS, oneLine, stripAnsi, summarizeToolInput } from "./text.ts";
 import type {
   AgentSessionRef,
@@ -236,6 +236,8 @@ export function parseCodexTranscript(text: string): TranscriptEntry[] {
   return entries;
 }
 
+const PATH_CACHE_MAX = 128;
+
 /**
  * Real filesystem source rooted at Codex's `sessions` directory.
  *
@@ -250,7 +252,7 @@ export function parseCodexTranscript(text: string): TranscriptEntry[] {
  * Claude's followContinuation exists to paper over, and Codex's hook simply doesn't have it.
  */
 export class CodexTranscriptSource implements TranscriptSource {
-  private readonly pathCache = new Map<string, string>();
+  private readonly pathCache = new Map<string, { path: string; root: string }>();
 
   private readonly roots: string[];
 
@@ -264,7 +266,8 @@ export class CodexTranscriptSource implements TranscriptSource {
     const sessionId = ref.value;
     const cached = this.pathCache.get(sessionId);
     if (cached !== undefined) {
-      if (await exists(cached)) return cached;
+      const real = await containedRealpath(cached.path, cached.root);
+      if (real !== null) return real;
       this.pathCache.delete(sessionId);
     }
 
@@ -274,7 +277,11 @@ export class CodexTranscriptSource implements TranscriptSource {
       // A hit that failed containment is `null` too — that root has nothing it may serve for this
       // uuid either way, and the next root is asked on its own terms (files.ts header).
       if (hit === null) continue;
-      this.pathCache.set(sessionId, hit);
+      this.pathCache.set(sessionId, { path: hit, root });
+      if (this.pathCache.size > PATH_CACHE_MAX) {
+        const oldest = this.pathCache.keys().next().value;
+        if (oldest !== undefined) this.pathCache.delete(oldest);
+      }
       return hit;
     }
     return null;
