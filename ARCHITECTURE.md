@@ -137,6 +137,14 @@ app. Closing this needs the server-side blocking-message capture described above
   the `interprocess` crate Herdr uses inserts no framing or metadata, so the same newline-delimited
   JSON-RPC speaks to both, streaming `events.subscribe` included. `COLLIE_HERDR_DIAL=net` forces the
   Windows dialer anywhere, which is how that branch stays tested off Windows.
+- **Request and reply boundaries.** JSON action bodies must be objects; arrays, primitives, and
+  `null` return 400 before terminal I/O. Tab/workspace creates and tab actions reject unsupported
+  methods with 405. A missing or invalid `workspaceId` returns 400; both upload size checks return
+  413. Herdr error replies require string `code` and `message` fields; malformed errors fail as
+  protocol errors in both dialers.
+- **Preference writes keep request order.** Notification preferences and snooze state each use a
+  serial write queue and an owner-only temporary file followed by rename. A failed save does not
+  prevent a later save.
 - **Output model: poll, not stream — event-poked.** Herdr exposes `pane.read` (snapshot) and
   `pane.output_matched` (regex event) but **no raw output-stream event**, so there is nothing to
   stream even if we wanted to; the live pane view is poll-on-status-change + caching. The bridge's
@@ -148,6 +156,9 @@ app. Closing this needs the server-side blocking-message capture described above
   relaxes to `COLLIE_POLL_IDLE_MS` (12 s default) whenever the stream is healthy and drops back to
   the fast `COLLIE_POLL_MS` when it isn't. **The snapshot poll stays the source of truth throughout —
   a missed event costs one interval, never correctness.**
+  Session-name enrichment finishes before the engine publishes the new snapshot or calls transition
+  listeners. HTTP reads therefore keep the previous snapshot and activity timestamps together while
+  those pane reads are in flight.
 - **Scrollback comes from the transcript, not the terminal.** An agent's TUI runs on the *alternate
   screen* (`ESC[?1049h`), so the emulator keeps no scrollback ring and `pane.read` can never return
   more than the visible viewport — the live mirror physically cannot scroll back. Pane history is
@@ -163,6 +174,10 @@ app. Closing this needs the server-side blocking-message capture described above
   and renders a window that grows upward, which is what lets find-in-history and jump-to-user-turn
   work across turns you haven't scrolled to. Rationale and the measured numbers are commented at the
   top of `web/src/routes/history.tsx`.
+  Claude, Codex, Pi, and Grok each retain at most 128 session-path hints, evicting the oldest hint.
+  Eviction triggers a new lookup; it does not remove logs. Cached paths retain their original root
+  for containment checks. History search maps lowercase match offsets back to the original text,
+  so characters such as `İ` cannot shift or truncate the displayed highlights.
 - **The browser polls too.** `useRevalidator` → `/api/snapshot` on an adaptive interval. There is no
   WebSocket fan-out to the browser and no push of state; pulling is what makes the two recovery loops
   below trivial.
