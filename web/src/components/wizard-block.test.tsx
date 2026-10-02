@@ -18,7 +18,8 @@ import { parseAnsi } from "@/lib/ansi";
 import { splitLines, type WizardModel } from "@/lib/blocks";
 import { detectWizard } from "@/lib/harness/claude/wizard";
 import { submitWizardKeys, wizardsEqual } from "@/lib/wizard-action";
-import { clearStatus, setStatus, useStatus } from "@/lib/status";
+import { clearStatus, setStatus } from "@/lib/status";
+import { StatusSentinel } from "@/test/status-sentinel";
 import { WizardBlock } from "./wizard-block";
 
 const mockFetchPane = vi.mocked(fetchPane);
@@ -296,11 +297,6 @@ describe("submitWizardKeys — race guard (one keystroke per tap)", () => {
 
 // A miniature of AgentChat's handler + status surface, so the wired tap is exercised through the
 // real component and the "wizard changed" notice pattern the app uses.
-function StatusSentinel() {
-  const status = useStatus();
-  return <div data-testid="status">{status?.text ?? ""}</div>;
-}
-
 function Harness({ wizard, detectedRevision }: { wizard: WizardModel; detectedRevision: number }) {
   async function onAction(keys: string[]) {
     const result = await submitWizardKeys({

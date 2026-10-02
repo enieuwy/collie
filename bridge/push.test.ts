@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { generateVAPIDKeys } from "web-push";
 
 import { Push, topicIsSendable } from "./push.ts";
 import type { PushSender, PushSubscription } from "./push.ts";
@@ -234,6 +235,66 @@ describe("Push — eviction of persistently-failing subscriptions", () => {
 
     expect(lines.some((l) => l.includes("pruning gone subscription (410)"))).toBe(true);
   });
+});
+
+describe("Push — initialization", () => {
+  async function configured() {
+    const cfg = await tempCfg();
+    const keys = generateVAPIDKeys();
+    return {
+      ...cfg,
+      vapidPublic: keys.publicKey,
+      vapidPrivate: keys.privateKey,
+      vapidSubject: "mailto:push-test@example.invalid",
+    };
+  }
+
+  test("a restart loads saved subscriptions and keeps their metadata usable", async () => {
+    const cfg = await configured();
+    const original = new Push(cfg);
+    await original.init();
+    await original.addSubscription(sub("saved"), { userAgent: "test phone" });
+    const saved = original.listSubscriptions();
+
+    const restarted = new Push(cfg);
+    await restarted.init();
+    expect(restarted.enabled).toBe(true);
+    expect(restarted.publicKey).toBe(cfg.vapidPublic);
+    expect(restarted.listSubscriptions()).toEqual(saved);
+    expect(await restarted.forget("saved")).toBe(1);
+    expect(await fileEndpoints(cfg.stateDir)).toEqual([]);
+  });
+
+  test.each([
+    ["a missing file", undefined],
+    ["malformed JSON", "{"],
+    ["a non-array file", "{}"],
+  ])("starts with an empty store after %s and accepts a new subscription", async (_label, contents) => {
+    const cfg = await configured();
+    if (contents !== undefined) {
+      await writeFile(join(cfg.stateDir, "push-subscriptions.json"), contents);
+    }
+    const push = new Push(cfg);
+    await push.init();
+    expect(push.enabled).toBe(true);
+    expect(push.listSubscriptions()).toEqual([]);
+    await push.addSubscription(sub("fresh"));
+    expect(await fileEndpoints(cfg.stateDir)).toEqual(["fresh"]);
+  });
+
+  test.each(["vapidPublic", "vapidPrivate"] as const)(
+    "stays disabled without %s and leaves saved subscriptions untouched",
+    async (missingKey) => {
+      const cfg = { ...await configured(), [missingKey]: "" };
+      await writeFile(join(cfg.stateDir, "push-subscriptions.json"), JSON.stringify([sub("saved")]));
+      const push = new Push(cfg);
+      await push.init();
+      expect(push.enabled).toBe(false);
+      expect(push.publicKey).toBe("");
+      await push.addSubscription(sub("ignored"));
+      expect(await fileEndpoints(cfg.stateDir)).toEqual(["saved"]);
+    },
+  );
 });
 
 describe("Push — persistence", () => {

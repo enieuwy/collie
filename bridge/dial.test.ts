@@ -5,14 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { dialHerdr, toPipeName } from "./dial.ts";
+import type { DialMode } from "./dial.ts";
 
 // toPipeName is pure and runs everywhere.
 //
-// The live-dial suite runs EVERYWHERE too, by forcing dialMode "net" — node:net addresses a named
-// pipe on win32 and an AF_UNIX path on POSIX, so the same test exercises the same branch on both.
-// That matters: this is the code Windows depends on, and without forcing it the branch would be
-// unexercised on every machine that can review or merge it. The only genuinely win32-specific
-// step is the pipe-name mapping, covered by the pure toPipeName tests above.
+// The live-dial suite forces "net" everywhere so Windows' branch remains runnable on POSIX.
+// On POSIX the same request/reply and byte-boundary cases also run through Bun's native dialer.
+// The only genuinely win32-specific step is the pipe-name mapping, covered below.
 
 describe("toPipeName", () => {
   test("prefixes a plain socket path with the pipe namespace", () => {
@@ -27,7 +26,7 @@ describe("toPipeName", () => {
   });
 });
 
-describe("dialHerdr over a live endpoint (node:net dialer, both platforms)", () => {
+describe("dialHerdr over a live endpoint", () => {
   // POSIX needs a real filesystem path for the AF_UNIX socket; win32 pipe names are namespaced and
   // need no temp dir at all. Cleaned up either way.
   const dir = process.platform === "win32" ? null : mkdtempSync(join(tmpdir(), "collie-dial-"));
@@ -63,8 +62,10 @@ describe("dialHerdr over a live endpoint (node:net dialer, both platforms)", () 
     return server;
   };
 
+  const modes: Array<"bun" | "net"> = process.platform === "win32" ? ["net"] : ["bun", "net"];
+
   /** Dial, send one request line, resolve with everything received up to the first newline. */
-  const requestLine = (pipe: string): Promise<string> =>
+  const requestLine = (pipe: string, mode: DialMode): Promise<string> =>
     new Promise<string>((resolve, reject) => {
       const received: Buffer[] = [];
       let settled = false;
@@ -85,28 +86,28 @@ describe("dialHerdr over a live endpoint (node:net dialer, both platforms)", () 
         close() {
           once(() => reject(new Error("closed before a full reply line")));
         },
-      }, "net")
+      }, mode)
         .then((s) => s.write('{"id":"t","method":"probe","params":{}}\n'))
         .catch((err) => once(() => reject(err)));
     });
 
-  test("one-shot request/reply round-trips, accepting an already-prefixed pipe name", async () => {
-    const pipe = pipeFor("roundtrip");
+  test.each(modes)("%s: one-shot request/reply round-trips", async (mode) => {
+    const pipe = pipeFor(`${mode}-roundtrip`);
     const server = await serveOnce(pipe, [Buffer.from('{"ok":true}\n', "utf-8")]);
     try {
-      expect(await requestLine(pipe)).toBe('{"ok":true}');
+      expect(await requestLine(pipe, mode)).toBe('{"ok":true}');
     } finally {
       server.close();
     }
   });
 
-  test("a reply split mid-codepoint across chunks reassembles byte-perfect", async () => {
-    const pipe = pipeFor("split");
+  test.each(modes)("%s: a reply split mid-codepoint reassembles byte-perfect", async (mode) => {
+    const pipe = pipeFor(`${mode}-split`);
     const payload = Buffer.from('{"emoji":"🐕🦮"}\n', "utf-8");
     const cut = 12; // inside the first emoji's 4-byte sequence
     const server = await serveOnce(pipe, [payload.subarray(0, cut), payload.subarray(cut)], 15);
     try {
-      expect(await requestLine(pipe)).toBe('{"emoji":"🐕🦮"}');
+      expect(await requestLine(pipe, mode)).toBe('{"emoji":"🐕🦮"}');
     } finally {
       server.close();
     }
@@ -138,7 +139,6 @@ describe("dialHerdr over a live endpoint (node:net dialer, both platforms)", () 
   // Both dial modes run it: "bun" is the deployed path and the one that was broken, "net" is the
   // Windows path, whose node:net write() queues instead of short-writing — this keeps that claim
   // honest rather than merely asserted in a comment.
-  const modes: Array<"bun" | "net"> = process.platform === "win32" ? ["net"] : ["bun", "net"];
   for (const mode of modes) {
     test(`a payload far past the short-write threshold arrives whole (${mode} dialer)`, async () => {
       const pipe = pipeFor(`backpressure-${mode}`);

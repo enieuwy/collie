@@ -1,8 +1,15 @@
-import { describe, expect, it } from "bun:test";
+import { afterAll, describe, expect, it, spyOn } from "bun:test";
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { loadConfig } from "./config.ts";
 
 import {
+  bridgeStampSync,
   compareSemver,
   githubReleaseUrl,
+  githubTagsFetcher,
   latestReleaseAboveMajor,
   latestReleaseInMajor,
   latestReleaseTag,
@@ -11,6 +18,7 @@ import {
   shouldNotify,
   stampOf,
   UpdateMonitor,
+  UpdateStateStore,
   type UpdateMonitorDeps,
   type UpdateStore,
 } from "./update.ts";
@@ -102,6 +110,146 @@ describe("stampOf", () => {
     expect(stampOf(a)).toBe(stampOf(b)); // same set, different order → same stamp
     expect(stampOf(a)).not.toBe(stampOf([{ path: "a.ts", mtimeMs: 9, size: 10 }, { path: "b.ts", mtimeMs: 2, size: 20 }]));
     expect(stampOf(a)).not.toBe(stampOf([{ path: "a.ts", mtimeMs: 1, size: 99 }, { path: "b.ts", mtimeMs: 2, size: 20 }]));
+  });
+});
+
+const dirs: string[] = [];
+async function tempRoot() {
+  const dir = await mkdtemp(join(tmpdir(), "collie-update-"));
+  dirs.push(dir);
+  return dir;
+}
+
+afterAll(async () => {
+  await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
+});
+
+describe("bridgeStampSync — restart detection", () => {
+  it("ignores test/docs edits but notices source additions and removals", async () => {
+    const root = await tempRoot();
+    const bridge = join(root, "bridge");
+    await mkdir(bridge);
+    await writeFile(join(bridge, "server.ts"), "export const value = 1;");
+    await writeFile(join(bridge, "server.test.ts"), "test");
+    await writeFile(join(bridge, "README.txt"), "docs");
+    const initial = bridgeStampSync(bridge, root);
+
+    await writeFile(join(bridge, "server.test.ts"), "a much longer test");
+    await writeFile(join(bridge, "README.txt"), "more documentation");
+    expect(bridgeStampSync(bridge, root)).toBe(initial);
+
+    await writeFile(join(bridge, "added.ts"), "export const added = true;");
+    expect(bridgeStampSync(bridge, root)).not.toBe(initial);
+    await unlink(join(bridge, "added.ts"));
+    expect(bridgeStampSync(bridge, root)).toBe(initial);
+
+    await unlink(join(bridge, "server.ts"));
+    expect(bridgeStampSync(bridge, root)).toBe("");
+  });
+
+  it("notices dependency edits even when the bridge directory is missing", async () => {
+    const root = await tempRoot();
+    const bridge = join(root, "missing");
+    expect(bridgeStampSync(bridge, root)).toBe("");
+    await writeFile(join(root, "package.json"), "{}");
+    await writeFile(join(root, "bun.lock"), "lock");
+    const initial = bridgeStampSync(bridge, root);
+
+    await writeFile(join(root, "bun.lock"), "changed dependency lock");
+    const changedLock = bridgeStampSync(bridge, root);
+    expect(changedLock).not.toBe(initial);
+    await writeFile(join(root, "package.json"), '{\"version\":\"1.0.0\"}');
+    expect(bridgeStampSync(bridge, root)).not.toBe(changedLock);
+    await unlink(join(root, "bun.lock"));
+    await unlink(join(root, "package.json"));
+    expect(bridgeStampSync(bridge, root)).toBe("");
+  });
+});
+
+describe("githubTagsFetcher — response boundaries", () => {
+  it("extracts non-empty string names and discards unusable tag records", async () => {
+    const fetch = spyOn(globalThis, "fetch").mockResolvedValue(Response.json([
+      { name: "v1.2.3", commit: { sha: "unused" } },
+      { name: 42 },
+      {},
+      { name: "" },
+      { name: "nightly" },
+    ]));
+    try {
+      expect(await githubTagsFetcher("example/repo")()).toEqual(["v1.2.3", "nightly"]);
+    } finally {
+      fetch.mockRestore();
+    }
+  });
+
+  it("rejects an HTTP failure instead of treating its body as release data", async () => {
+    const fetch = spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json([{ name: "v99.0.0" }], { status: 503 }),
+    );
+    try {
+      await expect(githubTagsFetcher("example/repo")()).rejects.toThrow("github tags: HTTP 503");
+    } finally {
+      fetch.mockRestore();
+    }
+  });
+
+  it("returns no tags for a non-array API response", async () => {
+    const fetch = spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ message: "not tags" }));
+    try {
+      expect(await githubTagsFetcher("example/repo")()).toEqual([]);
+    } finally {
+      fetch.mockRestore();
+    }
+  });
+
+  it("rejects malformed JSON so the monitor can retain its last successful check", async () => {
+    const fetch = spyOn(globalThis, "fetch").mockResolvedValue(new Response("{"));
+    try {
+      await expect(githubTagsFetcher("example/repo")()).rejects.toThrow();
+    } finally {
+      fetch.mockRestore();
+    }
+  });
+});
+
+describe("UpdateStateStore — notification deduplication across restarts", () => {
+  it("creates private state and reloads the last notified release after replacement", async () => {
+    const root = await tempRoot();
+    const cfg = { ...loadConfig(), stateDir: join(root, "state") };
+    const store = new UpdateStateStore(cfg);
+    await store.load();
+    expect(store.lastNotified()).toBeNull();
+
+    await store.setLastNotified("0.31.0");
+    await store.setLastNotified("0.32.0");
+    expect(JSON.parse(await readFile(join(cfg.stateDir, "update-state.json"), "utf8")))
+      .toEqual({ lastNotified: "0.32.0" });
+    expect(await readdir(cfg.stateDir)).toEqual(["update-state.json"]);
+    if (process.platform !== "win32") {
+      expect((await stat(join(cfg.stateDir, "update-state.json"))).mode & 0o777).toBe(0o600);
+    }
+
+    const restarted = new UpdateStateStore(cfg);
+    await restarted.load();
+    expect(restarted.lastNotified()).toBe("0.32.0");
+    expect(shouldNotify({
+      current: "0.30.0", latest: "0.32.0", lastNotified: restarted.lastNotified(),
+    })).toBe(false);
+  });
+
+  it.each([
+    ["malformed JSON", "{"],
+    ["a missing version", "{}"],
+    ["a non-string version", '{\"lastNotified\":42}'],
+  ])("treats %s as no notification history", async (_label, contents) => {
+    const stateDir = await tempRoot();
+    await writeFile(join(stateDir, "update-state.json"), contents);
+    const store = new UpdateStateStore({ ...loadConfig(), stateDir });
+    await store.load();
+    expect(store.lastNotified()).toBeNull();
+    expect(shouldNotify({
+      current: "0.30.0", latest: "0.32.0", lastNotified: store.lastNotified(),
+    })).toBe(true);
   });
 });
 

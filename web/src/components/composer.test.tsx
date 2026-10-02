@@ -5,11 +5,13 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { createMemoryRouter, RouterProvider } from "react-router";
 
-import { clearStatus, useStatus } from "@/lib/status";
+import { clearStatus } from "@/lib/status";
 import { isReloadHeld, __resetReloadGuard } from "@/lib/reload-guard";
 import { loadDraft } from "@/lib/drafts";
 import { server } from "@/test/setup";
 import { recordReply } from "@/test/handlers";
+import { StatusSentinel } from "@/test/status-sentinel";
+import { POLL_DELAY_MS } from "@/lib/harness/guard";
 import { Composer } from "./composer";
 
 // A guarded send is TWO reply calls: type (submit:false), then — once the text is verified on the
@@ -59,25 +61,25 @@ function renderComposer(overrides: Partial<ComponentProps<typeof Composer>> = {}
 }
 
 /**
- * Wait for a send that can never verify to reach its terminal `stalled` outcome.
- *
- * A reply handler that doesn't `recordReply` leaves the fake pane's input line empty, so the
- * type-then-verify guard polls POLL_ATTEMPTS × POLL_DELAY_MS (~2.8s) and only then reports. That
- * report is a `setStatus` on a MODULE-SCOPED singleton, which outlives the test that started it: a
- * test that returns first hands its stall to whichever test is running ~2.8s later, past this file's
- * `clearStatus()`, where it reads as that test's own failure. Every test that fires a send it never
- * lets verify ends with this. Needs a status sentinel in the render (`renderComposerWithStatus`).
+ * Advance verification delays until this send reaches its terminal `stalled` outcome.
+ * Keep the network's event-loop turns real. The synchronous click avoids Testing Library's
+ * async wrapper, whose final zero-delay timer only auto-advances Jest's fake clock, not Vitest's.
  */
-async function awaitTerminalStall() {
-  await waitFor(
-    () => expect(screen.getByTestId("status")).toHaveTextContent(/didn't reach the input box/i),
-    { timeout: 5000 },
-  );
-}
-
-function StatusSentinel() {
-  const status = useStatus();
-  return <div data-testid="status">{status?.text ?? ""}</div>;
+async function sendToTerminalStall(button: HTMLElement) {
+  const realSetTimeout = globalThis.setTimeout;
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    fireEvent.click(button);
+    await vi.waitFor(async () => {
+      await act(async () => {
+        await new Promise<void>((resolve) => realSetTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(POLL_DELAY_MS);
+      });
+      expect(screen.getByTestId("status")).toHaveTextContent(/didn't reach the input box/i);
+    }, { timeout: 5000 });
+  } finally {
+    vi.useRealTimers();
+  }
 }
 
 /** renderComposer + the status sentinel, for cases that assert on the status line. */
@@ -224,16 +226,8 @@ describe("Composer — send", () => {
     );
     expect(wire).toEqual([]);
 
-    await user.click(screen.getByRole("button", { name: "Type anyway?" }));
-    await waitFor(() => expect(wire).toContain("type:please do not approve anything"));
-    // The picker never turns into an input box, so type-then-verify polls out and reports `stalled`.
-    // Wait for that terminal outcome INSIDE the test: it lands on the module-scoped status singleton
-    // ~2.8s after the type (POLL_ATTEMPTS × POLL_DELAY_MS), and a test that ended first would have
-    // it write into whichever test was running by then, past this file's `clearStatus()`.
-    await waitFor(
-      () => expect(screen.getByTestId("status")).toHaveTextContent(/didn't reach the input box/i),
-      { timeout: 5000 },
-    );
+    await sendToTerminalStall(screen.getByRole("button", { name: "Type anyway?" }));
+    expect(wire).toContain("type:please do not approve anything");
     // No `ctrl+k` + 41 Backspaces into the picker. The override is about the MESSAGE; the keys the
     // guard cannot take back stay home, and the submit key is still withheld by type-then-verify.
     expect(wire.some((w) => w.startsWith("keys:"))).toBe(false);
@@ -275,14 +269,13 @@ describe("Composer — send", () => {
     const box = screen.getByPlaceholderText(/type a reply/i);
 
     await user.type(box, "new message");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await sendToTerminalStall(screen.getByRole("button", { name: "Send" }));
 
-    await waitFor(() => expect(callOrder).toEqual(["keys", "reply"]));
+    expect(callOrder).toEqual(["keys", "reply"]);
     expect(sentKeys![0]).toBe("ctrl+k");
     // Draft length + the 32-Backspace overshoot (mid-poll-gap host typing margin) + the ctrl+k.
     expect(sentKeys).toHaveLength([..."leftover"].length + 33);
     expect(sentKeys!.slice(1).every((k) => k === "Backspace")).toBe(true);
-    await awaitTerminalStall(); // see the helper: an unawaited stall lands in a later test
   }, 15000);
 
   // The burst is the only destructive keystroke path in the app not bound to the screen that
@@ -485,10 +478,9 @@ describe("Composer — send", () => {
     const box = screen.getByPlaceholderText(/type a reply/i);
 
     await user.type(box, "hello");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await sendToTerminalStall(screen.getByRole("button", { name: "Send" }));
 
-    await waitFor(() => expect(callOrder).toEqual(["reply"]));
-    await awaitTerminalStall(); // see the helper: an unawaited stall lands in a later test
+    expect(callOrder).toEqual(["reply"]);
   }, 15000);
 
   it("sequential sends with no stranded draft do not call keys before reply", async () => {
@@ -524,35 +516,7 @@ describe("Composer — send", () => {
         HttpResponse.json({ ok: false, textDelivered: true, error: partialError }),
       ),
     );
-    const props: ComponentProps<typeof Composer> = {
-      paneId: "w1:p1",
-      agent: "claude",
-      isShell: false,
-      gone: false,
-      readOnly: false,
-      dialogPresent: false,
-      text: "pane output",
-      terminalDraft: null,
-      rawTerminalDraft: null,
-      prefs: { wrap: true, fontSize: 11, rawTerminal: false, tapToFocus: true },
-      setWrap: vi.fn(),
-      stepFontSize: vi.fn(),
-      setRawTerminal: vi.fn(),
-      setTapToFocus: vi.fn(),
-      onSent: vi.fn(),
-    };
-    const router = createMemoryRouter([
-      {
-        path: "/",
-        element: (
-          <>
-            <StatusSentinel />
-            <Composer {...props} />
-          </>
-        ),
-      },
-    ]);
-    render(<RouterProvider router={router} />);
+    const props = renderComposerWithStatus();
     const box = screen.getByPlaceholderText(/type a reply/i);
 
     await user.type(box, "almost sent");
@@ -1033,14 +997,13 @@ describe("Composer — blocked pre-flight override", () => {
     await user.click(screen.getByRole("button", { name: "Send" }));
     await screen.findByRole("button", { name: /type anyway/i });
 
-    await user.click(screen.getByRole("button", { name: /type anyway/i }));
+    await sendToTerminalStall(screen.getByRole("button", { name: /type anyway/i }));
 
     // The text goes in (the user overruled the pre-flight) — but the pane never echoes it onto an
     // input line, so the verify step never passes and Enter is never fired. THE #34 invariant.
-    await waitFor(() => expect(calls).toContain("type"));
+    expect(calls).toContain("type");
     expect(calls).not.toContain("submit");
     expect(box).toHaveValue("use fable please");
-    await awaitTerminalStall(); // see the helper: an unawaited stall lands in a later test
   }, 15000);
 });
 

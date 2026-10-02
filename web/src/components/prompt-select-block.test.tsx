@@ -19,7 +19,8 @@ import { parseAnsi } from "@/lib/ansi";
 import { splitLines, type PromptModel } from "@/lib/blocks";
 import { detectPromptSelect } from "@/lib/harness/claude/prompt-select";
 import { submitPromptFeedback, submitPromptOption } from "@/lib/prompt-action";
-import { clearStatus, setStatus, useStatus } from "@/lib/status";
+import { clearStatus, setStatus } from "@/lib/status";
+import { StatusSentinel } from "@/test/status-sentinel";
 import { PromptSelectBlock, type PromptBlockAction } from "./prompt-select-block";
 
 const mockFetchPane = vi.mocked(fetchPane);
@@ -290,11 +291,6 @@ describe("submitPromptOption — race guard + per-family keystroke recipe", () =
 
 // A miniature of AgentChat's handler + status surface, so the wired tap is exercised through the
 // real component and the "menu changed" notice pattern the app uses.
-function StatusSentinel() {
-  const status = useStatus();
-  return <div data-testid="status">{status?.text ?? ""}</div>;
-}
-
 function Harness({ prompt, detectedRevision }: { prompt: PromptModel; detectedRevision: number }) {
   async function onAction(action: PromptBlockAction) {
     const result =

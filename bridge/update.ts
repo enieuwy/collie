@@ -127,7 +127,7 @@ export function stampOf(entries: { path: string; mtimeMs: number; size: number }
     .join("\n");
 }
 
-// ── Impure seams (injected into the monitor; not unit-tested) ─────────────────
+// ── Impure seams (injected into the monitor) ──────────────────────────────────
 
 /** Stamp the running bridge's source: every `bridge/*.ts` (EXCLUDING `*.test.ts` — a test-only edit
  *  needs no restart), plus the root `package.json` + `bun.lock` (a dep bump needs a restart and is
