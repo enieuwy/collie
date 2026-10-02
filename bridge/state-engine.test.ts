@@ -1,6 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 
 import { StateEngine, type EngineSnapshot } from "./state-engine.ts";
+import { ActivityLedger } from "./activity.ts";
 import type { HerdrClient } from "./herdr-client.ts";
 import type { AgentStatus } from "./types.ts";
 
@@ -490,6 +491,56 @@ describe("StateEngine — session name enrichment", () => {
     herdr.panes = [pane("w1:p2", "w1", "idle", "claude")];
     await poll();
     expect(engine.current().agents[0]!.sessionName).toBeUndefined();
+  });
+
+  test("a pane read during enrichment stays seen when the observed transition publishes", async () => {
+    let now = 1_000_000;
+    const clock = spyOn(Date, "now").mockImplementation(() => now);
+    const activity = new ActivityLedger({ stateDir: "/unused" }, () => now, 3_600_000);
+    const { herdr, engine, poll } = makeNameEngine();
+    engine.onTransition((a, _from, _to, observedAt) =>
+      activity.noteActive("default", a.paneId, observedAt));
+    engine.onUpdate((s) => activity.reconcile("default", s.agents.map((a) => a.paneId)));
+    let release!: () => void;
+    let pending: Promise<void> | undefined;
+    try {
+      herdr.panes = [pane("w1:p1", "w1", "working", "claude")];
+      await poll();
+      now = 2_000_000;
+      herdr.panes = [pane("w1:p1", "w1", "blocked", "claude")];
+      let entered!: () => void;
+      const readStarted = new Promise<void>((resolve) => { entered = resolve; });
+      const readGate = new Promise<void>((resolve) => { release = resolve; });
+      herdr.readPane = async (paneId) => {
+        entered();
+        await readGate;
+        return { pane_id: paneId, text: plainBox, truncated: false, revision: 0 };
+      };
+      pending = poll();
+      await readStarted;
+      now = 3_000_000;
+      activity.noteSeen("default", "w1:p1");
+      expect(engine.current().agents[0]!.status).toBe("working");
+      now = 4_000_000;
+      release();
+      await pending;
+      expect(engine.current().agents[0]!.status).toBe("blocked");
+      expect(activity.get("default", "w1:p1")).toEqual({
+        activeAt: 2_000_000, seenAt: 3_000_000,
+      });
+
+      now = 5_000_000;
+      herdr.panes = [pane("w1:p1", "w1", "working", "claude")];
+      await poll();
+      expect(activity.get("default", "w1:p1")).toEqual({
+        activeAt: 5_000_000, seenAt: 3_000_000,
+      });
+    } finally {
+      release?.();
+      await pending;
+      activity.stop();
+      clock.mockRestore();
+    }
   });
 
   test("a failing pane read never blanks the name or fails the poll", async () => {

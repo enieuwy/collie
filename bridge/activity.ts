@@ -199,12 +199,11 @@ export class ActivityLedger {
     this.markDirty();
   }
 
-  /** The agent moved (a status transition). This is the only thing that can make a pane unread. */
-  noteActive(session: string, paneId: string): void {
+  /** A status transition observed at `observedAt`, even if publication follows later. */
+  noteActive(session: string, paneId: string, observedAt: number): void {
     const panes = this.panesFor(session);
-    const t = this.now();
     const prev = panes.get(paneId);
-    panes.set(paneId, { activeAt: t, seenAt: prev?.seenAt ?? t });
+    panes.set(paneId, { activeAt: observedAt, seenAt: prev?.seenAt ?? observedAt });
     this.markDirty();
   }
 

@@ -173,7 +173,7 @@ describe("ActivityLedger — the unseen derivation", () => {
     const { l, advance } = ledger();
     l.ensure("default", "w0:p1");
     advance(60_000);
-    l.noteActive("default", "w0:p1");
+    l.noteActive("default", "w0:p1", 1_060_000);
     expect(unseen(l.get("default", "w0:p1"))).toBe(true);
   });
 
@@ -181,7 +181,7 @@ describe("ActivityLedger — the unseen derivation", () => {
     const { l, advance } = ledger();
     l.ensure("default", "w0:p1");
     advance(60_000);
-    l.noteActive("default", "w0:p1");
+    l.noteActive("default", "w0:p1", 1_060_000);
     advance(1000);
     l.noteSeen("default", "w0:p1");
     expect(unseen(l.get("default", "w0:p1"))).toBe(false);
@@ -193,7 +193,7 @@ describe("ActivityLedger — the unseen derivation", () => {
     advance(10_000);
     l.noteSeen("default", "w0:p1");
     advance(10_000);
-    l.noteActive("default", "w0:p1");
+    l.noteActive("default", "w0:p1", 1_020_000);
     expect(unseen(l.get("default", "w0:p1"))).toBe(true);
   });
 
@@ -201,7 +201,7 @@ describe("ActivityLedger — the unseen derivation", () => {
     const { l, at } = ledger();
     l.ensure("default", "w0:p1");
     at(2_000_000);
-    l.noteActive("default", "w0:p1");
+    l.noteActive("default", "w0:p1", 2_000_000);
     at(3_000_000);
     l.noteSeen("default", "w0:p1");
     expect(l.get("default", "w0:p1")).toEqual({ activeAt: 2_000_000, seenAt: 3_000_000 });
@@ -211,7 +211,7 @@ describe("ActivityLedger — the unseen derivation", () => {
     // Defensive: a transition should always follow a sighting, but if the ledger somehow missed the
     // seed, inventing an unread alert out of nothing is the worse failure.
     const { l } = ledger();
-    l.noteActive("default", "w0:p9");
+    l.noteActive("default", "w0:p9", 1_000_000);
     expect(unseen(l.get("default", "w0:p9"))).toBe(false);
   });
 });
@@ -222,7 +222,7 @@ describe("ActivityLedger — sessions are isolated", () => {
     l.ensure("default", "w0:p1");
     l.ensure("demo", "w0:p1");
     at(2_000_000);
-    l.noteActive("default", "w0:p1");
+    l.noteActive("default", "w0:p1", 2_000_000);
 
     expect(unseen(l.get("default", "w0:p1"))).toBe(true);
     expect(unseen(l.get("demo", "w0:p1"))).toBe(false);
@@ -254,7 +254,7 @@ describe("ActivityLedger — reconcile", () => {
     const { l, at } = ledger();
     l.reconcile("default", ["w0:p1"]);
     at(2_000_000);
-    l.noteActive("default", "w0:p1");
+    l.noteActive("default", "w0:p1", 2_000_000);
     at(3_000_000);
     l.reconcile("default", ["w0:p1", "w0:p2"]);
     expect(l.get("default", "w0:p1")).toEqual({ activeAt: 2_000_000, seenAt: 1_000_000 });
@@ -264,7 +264,7 @@ describe("ActivityLedger — reconcile", () => {
     const { l, at } = ledger();
     l.reconcile("default", ["w0:p1"]);
     at(2_000_000);
-    l.noteActive("default", "w0:p1");
+    l.noteActive("default", "w0:p1", 2_000_000);
     l.reconcile("default", []);
     expect(l.get("default", "w0:p1")).toBeUndefined();
 
@@ -330,7 +330,7 @@ describe("ActivityLedger — persistence", () => {
   test("a flushed ledger reloads identically", async () => {
     const { l, stateDir } = ledger();
     l.reconcile("default", ["w0:p1", "w0:p2"]);
-    l.noteActive("default", "w0:p1");
+    l.noteActive("default", "w0:p1", 1_000_000);
     await l.flush();
 
     const reloaded = new ActivityLedger({ stateDir }, () => 1_000_000);
@@ -353,7 +353,7 @@ describe("ActivityLedger — persistence", () => {
     try {
       l.ensure("demo", "w0:p1");
       now = 2_000_000;
-      l.noteActive("demo", "w0:p1");
+      l.noteActive("demo", "w0:p1", now);
       await persisted;
 
       const reloaded = new ActivityLedger({ stateDir }, () => now);

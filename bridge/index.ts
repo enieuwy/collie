@@ -137,7 +137,8 @@ const makeSession: SessionFactory = (name, socketPath, isPrimary) => {
   // read as unseen); every successful poll reconciles the ledger against the panes that exist, which
   // seeds first sightings as already-seen and reaps closed ones. Reconciling covers bare shells too,
   // which the engine's agent-derived removal event never reports.
-  engine.onTransition((agent) => activity.noteActive(name, agent.paneId));
+  engine.onTransition((agent, _from, _to, observedAt) =>
+    activity.noteActive(name, agent.paneId, observedAt));
   engine.onUpdate((s) =>
     activity.reconcile(name, [...s.agents, ...s.shellPanes].map((p) => p.paneId)),
   );

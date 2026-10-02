@@ -159,6 +159,9 @@ app. Closing this needs the server-side blocking-message capture described above
   Session-name enrichment finishes before the engine publishes the new snapshot or calls transition
   listeners. HTTP reads therefore keep the previous snapshot and activity timestamps together while
   those pane reads are in flight.
+  The engine captures each transition's observation time before enrichment and passes it to the ledger
+  after publication. A pane read during enrichment therefore stays seen; enrichment cannot make an
+  already-read result unread again.
 - **Scrollback comes from the transcript, not the terminal.** An agent's TUI runs on the *alternate
   screen* (`ESC[?1049h`), so the emulator keeps no scrollback ring and `pane.read` can never return
   more than the visible viewport — the live mirror physically cannot scroll back. Pane history is

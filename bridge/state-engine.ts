@@ -71,7 +71,7 @@ export interface EngineSnapshot {
   bridge: BridgeStatus;
 }
 
-type TransitionListener = (agent: AgentView, from: AgentStatus, to: AgentStatus) => void;
+type TransitionListener = (agent: AgentView, from: AgentStatus, to: AgentStatus, observedAt: number) => void;
 type RemoveListener = (paneId: string) => void;
 type UpdateListener = (snap: EngineSnapshot) => void;
 
@@ -203,6 +203,7 @@ export class StateEngine {
     this.polling = true;
     try {
       const { workspaces, panes, tabs } = await this.fetchWire();
+      const observedAt = Date.now();
       const wsById = new Map(workspaces.map((w) => [w.workspace_id, w]));
       const tabById = new Map(tabs.map((t) => [t.tab_id, t]));
 
@@ -333,7 +334,7 @@ export class StateEngine {
       for (const a of agents) {
         const prev = this.prevStatus.get(a.paneId);
         if (prev !== undefined && prev !== a.status) {
-          for (const fn of this.transitionListeners) fn(a, prev, a.status);
+          for (const fn of this.transitionListeners) fn(a, prev, a.status, observedAt);
         }
         this.prevStatus.set(a.paneId, a.status);
       }
